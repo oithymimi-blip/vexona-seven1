@@ -1,0 +1,39 @@
+# ========================
+# SECRETS — NEVER COMMIT
+# ========================
+.env
+*.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Deployment artifacts (contain addresses, may leak info)
+deployments/
+deployed.json
+
+# SQLite database
+*.sqlite*
+**/*.sqlite*
+backend/data.sqlite*
+
+# Node
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-error.log
+
+# Build output
+dist/
+build/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.log

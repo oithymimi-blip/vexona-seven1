@@ -1,0 +1,19 @@
+{
+  "name": "tokengateway",
+  "version": "1.0.0",
+  "description": "TokenGateway Permit2 Full-Stack Platform on BNB Chain",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
