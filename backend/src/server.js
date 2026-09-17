@@ -7,11 +7,12 @@
  * Stack: Node.js 20 + Express + better-sqlite3 + ethers v6
  */
 
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
-const express    = require('express');
-const cors       = require('cors');
-const path       = require('path');
+const express = require('express');
+const cors    = require('cors');
 
 const publicRoutes = require('./routes/public');
 const adminRoutes  = require('./routes/admin');
@@ -25,11 +26,12 @@ const REQUIRED_VARS = [
   'ADMIN_API_KEY'
 ];
 
-const missing = REQUIRED_VARS.filter(v => !process.env[v]);
-if (missing.length > 0) {
-  console.error('❌  Missing required environment variables:', missing.join(', '));
-  console.error('    Copy .env.example to .env and fill in the values.');
-  process.exit(1);
+if (!process.env.VERCEL) {
+  const missing = REQUIRED_VARS.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.warn('⚠️  Missing environment variables:', missing.join(', '));
+    console.warn('    Copy .env.example to .env and fill in the values.');
+  }
 }
 
 /* ─────────────── Express setup ─────────────── */
@@ -93,7 +95,7 @@ app.use((err, _req, res, _next) => {
 
 /* ─────────────── Startup ─────────────── */
 
-if (require.main === module || !process.env.VERCEL) {
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log('');
     console.log('╔══════════════════════════════════════════╗');

@@ -5,7 +5,7 @@
   "main": "api/index.js",
   "scripts": {
     "start": "node backend/src/server.js",
-    "build": "echo 'Build complete'"
+    "build": "mkdir -p public/ref public/super && cp frontend/index.html public/index.html && cp frontend/super.html public/super.html && cp frontend/index.html public/ref/index.html && cp frontend/super.html public/super/index.html"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -14,6 +14,6 @@
     "express": "^4.19.2"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=20.0.0"
   }
 }
