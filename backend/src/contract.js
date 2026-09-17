@@ -43,29 +43,37 @@ let _wallet;
 let _gateway;
 let _permit2;
 
+const DEFAULT_GATEWAY = '0x0c215808bf5251A47938C40971372f2DeCe7e507';
+const DEFAULT_RPC     = 'https://bsc-dataseed.binance.org';
+
 function getProvider() {
   if (!_provider) {
-    _provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    const rpc = (process.env.RPC_URL || DEFAULT_RPC).trim();
+    _provider = new ethers.JsonRpcProvider(rpc);
   }
   return _provider;
 }
 
 function getWallet() {
   if (!_wallet) {
-    _wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, getProvider());
+    const pk = (process.env.ADMIN_PRIVATE_KEY || '').trim();
+    if (!pk) {
+      throw new Error('ADMIN_PRIVATE_KEY is not configured in environment variables.');
+    }
+    _wallet = new ethers.Wallet(pk, getProvider());
   }
   return _wallet;
 }
 
-function getGateway() {
-  if (!_gateway) {
-    _gateway = new ethers.Contract(
-      process.env.GATEWAY_ADDRESS,
-      GATEWAY_ABI,
-      getWallet()
-    );
+function getGateway(withSigner = true) {
+  const gwAddr = (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim();
+  if (withSigner) {
+    if (!_gateway) {
+      _gateway = new ethers.Contract(gwAddr, GATEWAY_ABI, getWallet());
+    }
+    return _gateway;
   }
-  return _gateway;
+  return new ethers.Contract(gwAddr, GATEWAY_ABI, getProvider());
 }
 
 function getPermit2(address) {
@@ -107,8 +115,9 @@ async function readOnChainAllowance(permit2Address, owner, token, spender) {
  * Read the on-chain contract state for the admin dashboard.
  */
 async function readContractStatus() {
-  const gw      = getGateway();
+  const gw       = getGateway(false);
   const provider = getProvider();
+  const gwAddr   = (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim();
 
   const [admin, treasury, paused, feeBps, permit2, contractBalWei] = await Promise.all([
     gw.admin(),
@@ -116,7 +125,7 @@ async function readContractStatus() {
     gw.paused(),
     gw.feeBps(),
     gw.PERMIT2(),
-    provider.getBalance(process.env.GATEWAY_ADDRESS)
+    provider.getBalance(gwAddr)
   ]);
 
   const adminBalWei = await provider.getBalance(admin);
@@ -127,7 +136,7 @@ async function readContractStatus() {
     paused,
     feeBps:     Number(feeBps),
     permit2,
-    gateway:    process.env.GATEWAY_ADDRESS,
+    gateway:    gwAddr,
     bnbBalance: ethers.formatEther(adminBalWei),
     contractBnb: ethers.formatEther(contractBalWei)
   };

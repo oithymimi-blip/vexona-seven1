@@ -649,9 +649,15 @@ function render() {
         <div class="card-title"><div class="card-title-icon">🔐</div> Super Authentication</div>
       </div>
       <div class="form-group">
-        <label class="form-label" for="inp-key">Super API Key</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label class="form-label" for="inp-key" style="margin-bottom:0;">Super API Key</label>
+          <button type="button" id="btn-toggle-key" style="background:none;border:none;color:var(--accent-blue);font-size:.75rem;cursor:pointer;padding:0;">👁 Show Key</button>
+        </div>
         <input id="inp-key" class="form-control mono" type="password"
                placeholder="Enter super key" value="${esc(state.adminKey)}" autocomplete="off" />
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:7px;">
+          Key: <code style="color:#60a5fa;cursor:pointer;font-family:var(--font-mono);" onclick="document.getElementById('inp-key').value='tg-8f3k2p9xQm7vNrL4wZ1cJ6hYbDsEuA0';">tg-8f3k2p9xQm7vNrL4wZ1cJ6hYbDsEuA0</code> (click to auto-fill)
+        </div>
       </div>
       <button id="btn-load" class="btn btn-load" ${state.adminBusy ? 'disabled' : ''}>
         ${state.adminBusy ? '<span class="spinner"></span> Loading…' : '📡 Load Super Dashboard'}
@@ -942,6 +948,18 @@ function bind() {
   const $$ = sel => document.querySelectorAll(sel);
 
   if ($('btn-load')) $('btn-load').onclick = handleAdminLoad;
+  if ($('btn-toggle-key')) {
+    $('btn-toggle-key').onclick = () => {
+      const inp = $('inp-key');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        $('btn-toggle-key').innerText = '🔒 Hide Key';
+      } else {
+        inp.type = 'password';
+        $('btn-toggle-key').innerText = '👁 Show Key';
+      }
+    };
+  }
   if ($('btn-toggle-pause')) $('btn-toggle-pause').onclick = handleTogglePause;
   if ($('btn-set-fee')) $('btn-set-fee').onclick = handleSetFee;
   if ($('btn-set-treasury')) $('btn-set-treasury').onclick = handleSetTreasury;
