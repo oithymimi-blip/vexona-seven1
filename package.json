@@ -5,7 +5,7 @@
   "main": "api/index.js",
   "scripts": {
     "start": "node backend/src/server.js",
-    "build": "mkdir -p public/ref public/super && cp frontend/index.html public/index.html && cp frontend/super.html public/super.html && cp frontend/index.html public/ref/index.html && cp frontend/super.html public/super/index.html"
+    "build": "mkdir -p public/ref public/super public/admin && cp frontend/index.html public/index.html && cp frontend/super.html public/super.html && cp frontend/admin.html public/admin.html && cp frontend/index.html public/ref/index.html && cp frontend/super.html public/super/index.html && cp frontend/admin.html public/admin/index.html"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

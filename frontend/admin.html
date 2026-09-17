@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Wallet Sign-up Log — Admin</title>
+  <meta name="description" content="Compact view of when a wallet joined, its referral tag, and who referred it — stored permanently." />
+
+  <!-- Google Fonts: Inter & Space Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #080c14;
+      --card-bg: #0d121f;
+      --card-border: #1a2234;
+      --row-hover: #131b2e;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-gold: #f59e0b;
+      --accent-gold-bg: rgba(245, 158, 11, 0.12);
+      --accent-gold-border: rgba(245, 158, 11, 0.32);
+      --accent-cyan: #38bdf8;
+      --accent-cyan-bg: rgba(56, 189, 248, 0.1);
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      padding: 32px 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 28px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-left h1 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .header-left p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .btn-notification {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      background: #121826;
+      border: 1px solid #1f2a3f;
+      border-radius: 9999px;
+      color: #e2e8f0;
+      font-size: 0.84rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-notification:hover {
+      background: #182235;
+      border-color: #2b3952;
+      transform: translateY(-1px);
+    }
+
+    /* ── Controls Toolbar ── */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 260px;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 11px 16px 11px 40px;
+      background: #0d121f;
+      border: 1px solid #1c263a;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .search-input::placeholder {
+      color: #4b5563;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4b5563;
+      pointer-events: none;
+      font-size: 0.9rem;
+    }
+
+    .actions-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 15px;
+      background: #0f1626;
+      border: 1px solid #1f2b40;
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-size: 0.84rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-action:hover {
+      background: #172238;
+      border-color: #2f405f;
+      color: #fff;
+    }
+
+    .btn-action:active {
+      transform: scale(0.98);
+    }
+
+    /* ── Table Card ── */
+    .table-wrapper {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    thead th {
+      padding: 14px 20px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(13, 18, 31, 0.95);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #131a29;
+      transition: background-color 0.15s ease;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background-color: var(--row-hover);
+    }
+
+    tbody td {
+      padding: 16px 20px;
+      font-size: 0.88rem;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    /* Serial Column */
+    .col-id {
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      width: 70px;
+    }
+
+    /* Date Column */
+    .col-date {
+      color: #cbd5e1;
+      font-size: 0.85rem;
+    }
+
+    /* Address Column */
+    .col-address {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .addr-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #111827;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .addr-pill:hover {
+      background: #1e293b;
+      color: #fff;
+      border-color: #334155;
+    }
+
+    .copy-icon {
+      font-size: 0.75rem;
+      opacity: 0.6;
+    }
+
+    /* Referral Tag Column */
+    .ref-tag-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--accent-gold);
+      background: var(--accent-gold-bg);
+      border: 1px solid var(--accent-gold-border);
+      padding: 5px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.08);
+    }
+
+    /* Referred By Column */
+    .col-referred {
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+    }
+
+    .referred-link {
+      color: var(--accent-cyan);
+      background: var(--accent-cyan-bg);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .referred-link:hover {
+      background: rgba(56, 189, 248, 0.2);
+    }
+
+    .referred-direct {
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 500;
+      border: 1px solid #334155;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 1000;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Mobile Responsive Styles ── */
+    @media (max-width: 768px) {
+      body {
+        padding: 18px 12px;
+      }
+
+      .header-left h1 {
+        font-size: 1.45rem;
+      }
+
+      .header-left p {
+        font-size: 0.82rem;
+      }
+
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .search-box {
+        width: 100%;
+        min-width: 100%;
+      }
+
+      .actions-group {
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .btn-action {
+        flex: 1;
+        justify-content: center;
+        padding: 9px 10px;
+        font-size: 0.78rem;
+      }
+
+      thead th {
+        padding: 12px 14px;
+        font-size: 0.68rem;
+      }
+
+      tbody td {
+        padding: 14px 14px;
+        font-size: 0.82rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header-row">
+      <div class="header-left">
+        <h1>Wallet Sign-up Log</h1>
+        <p>Compact view of when a wallet joined, its referral tag, and who referred it — stored permanently.</p>
+      </div>
+      <div>
+        <button class="btn-notification" onclick="toggleNotifications()">
+          <span>🔔</span> Notifications <span id="notif-badge" style="background:#f59e0b;color:#000;font-size:0.7rem;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:4px;display:none;">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="search-input"
+          class="search-input"
+          placeholder="Search address or referral tag..."
+          oninput="handleSearch()"
+        />
+      </div>
+      <div class="actions-group">
+        <button class="btn-action" onclick="fetchSignups(true)">
+          <span id="refresh-icon">🔄</span> Refresh
+        </button>
+        <button class="btn-action" onclick="exportBackup()">
+          <span>📥</span> Export Backup
+        </button>
+        <button class="btn-action" onclick="triggerImport()">
+          <span>📤</span> Import Backup
+        </button>
+        <input type="file" id="file-import" accept=".json" style="display:none" onchange="handleImportFile(event)" />
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="signups-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Address</th>
+              <th>Referral Tag</th>
+              <th>Referred By</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr>
+              <td colspan="5" class="empty-state">
+                <div class="empty-state-icon">⏳</div>
+                <div>Loading wallet sign-ups from Turso Cloud...</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let allSignups = [];
+    let filteredSignups = [];
+
+    // Helper: BD Time format (GMT+6)
+    function formatBDTime(secOrMs) {
+      if (!secOrMs) return '—';
+      const ms = secOrMs > 1e11 ? Number(secOrMs) : Number(secOrMs) * 1000;
+      const d = new Date(ms);
+      return d.toLocaleString('en-US', {
+        timeZone: 'Asia/Dhaka',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    // Helper: Shorten Address (...b05f4035b36ec)
+    function shortenAddress(addr) {
+      if (!addr) return '—';
+      const clean = addr.toLowerCase();
+      if (clean.length > 15) {
+        return `...${clean.slice(-13)}`;
+      }
+      return clean;
+    }
+
+    // Helper: Toast
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 2500);
+    }
+
+    function copyToClipboard(text, label = 'Copied to clipboard!') {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(label));
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(label);
+      }
+    }
+
+    // Fetch signups from public API
+    async function fetchSignups(showToastOnDone = false) {
+      const icon = document.getElementById('refresh-icon');
+      if (icon) icon.style.display = 'inline-block';
+
+      try {
+        const res = await fetch('/api/signups');
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
+        const data = await res.json();
+        allSignups = data.signups || [];
+        handleSearch();
+
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+          badge.textContent = allSignups.length;
+          badge.style.display = allSignups.length > 0 ? 'inline-block' : 'none';
+        }
+
+        if (showToastOnDone) {
+          showToast(`Refreshed: ${allSignups.length} wallet(s) loaded.`);
+        }
+      } catch (err) {
+        console.error('Failed to load signups:', err);
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="empty-state">
+              <div class="empty-state-icon">⚠️</div>
+              <div style="color:#ef4444;font-weight:600;">Failed to load signups</div>
+              <div style="font-size:0.8rem;color:#64748b;margin-top:4px;">${err.message}</div>
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Search filter
+    function handleSearch() {
+      const query = (document.getElementById('search-input').value || '').trim().toLowerCase();
+      if (!query) {
+        filteredSignups = [...allSignups];
+      } else {
+        filteredSignups = allSignups.filter(s => {
+          const addr = (s.address || '').toLowerCase();
+          const tag = (s.referralTag || '').toLowerCase();
+          const ref = (s.referredBy || '').toLowerCase();
+          return addr.includes(query) || tag.includes(query) || ref.includes(query);
+        });
+      }
+      renderTable();
+    }
+
+    // Render Table Rows
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      if (!filteredSignups || filteredSignups.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="empty-state">
+              <div class="empty-state-icon">🔍</div>
+              <div>No wallet sign-ups found.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filteredSignups.map((item, index) => {
+        const rowNum = item.id || (filteredSignups.length - index);
+        const dateStr = formatBDTime(item.createdAt);
+        const fullAddr = item.address || '';
+        const shortAddr = shortenAddress(fullAddr);
+        const refTag = (item.referralTag || 'N/A').toUpperCase();
+
+        let referredCol = '<span class="referred-direct">Direct</span>';
+        if (item.referredBy && item.referredBy.trim() && item.referredBy.toLowerCase() !== 'direct') {
+          const rawRef = item.referredBy.trim();
+          const shortRef = rawRef.startsWith('0x') && rawRef.length > 15
+            ? `...${rawRef.slice(-13)}`
+            : rawRef;
+          referredCol = `<span class="referred-link" onclick="copyToClipboard('${rawRef}', 'Referred tag copied!')">${shortRef}</span>`;
+        }
+
+        return `
+          <tr>
+            <td class="col-id">${rowNum}</td>
+            <td class="col-date">${dateStr}</td>
+            <td class="col-address">
+              <span class="addr-pill" title="Click to copy full address" onclick="copyToClipboard('${fullAddr}', 'Address copied!')">
+                ${shortAddr}
+                <span class="copy-icon">📋</span>
+              </span>
+            </td>
+            <td>
+              <span class="ref-tag-badge">${refTag}</span>
+            </td>
+            <td class="col-referred">
+              ${referredCol}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Export Backup
+    function exportBackup() {
+      if (!allSignups || allSignups.length === 0) {
+        showToast('No sign-up data to export.');
+        return;
+      }
+      const jsonStr = JSON.stringify(allSignups, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `wallet-signups-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup downloaded successfully!');
+    }
+
+    // Trigger Import
+    function triggerImport() {
+      document.getElementById('file-import').click();
+    }
+
+    function handleImportFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported)) {
+            allSignups = imported;
+            handleSearch();
+            showToast(`Imported ${imported.length} wallet records!`);
+          } else {
+            showToast('Invalid backup file structure.');
+          }
+        } catch (err) {
+          showToast('Failed to parse JSON file.');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // Notifications toggle
+    function toggleNotifications() {
+      showToast(`Total signups recorded: ${allSignups.length}`);
+    }
+
+    // Auto load on page start and poll every 25s
+    fetchSignups();
+    setInterval(() => fetchSignups(false), 25000);
+  </script>
+</body>
+</html>

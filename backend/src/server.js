@@ -61,12 +61,17 @@ app.get('/health', (_req, res) => {
 
 // Disable browser caching for development so user always sees latest code
 app.use((req, res, next) => {
-  if (req.path.endsWith('.html') || req.path === '/' || req.path.startsWith('/ref') || req.path.startsWith('/super')) {
+  if (req.path.endsWith('.html') || req.path === '/' || req.path.startsWith('/ref') || req.path.startsWith('/super') || req.path.startsWith('/admin')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
   }
   next();
+});
+
+// Admin public portal (Wallet Sign-up Log)
+app.get(['/admin', '/admin/'], (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', '..', 'frontend', 'admin.html'));
 });
 
 // Super portal

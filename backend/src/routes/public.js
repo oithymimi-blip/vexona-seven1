@@ -140,4 +140,51 @@ router.post('/permits', async (req, res) => {
   }
 });
 
+/* ─────────────────────────────────────────
+   GET /api/signups
+   Public wallet sign-up log (no auth required)
+   Returns permanently saved wallet sign-ups from Turso / SQLite
+───────────────────────────────────────── */
+router.get('/signups', async (_req, res) => {
+  try {
+    const permits = await db.getAllPermits();
+    // Sort descending by id (latest on top)
+    const sorted = [...permits].sort((a, b) => Number(b.id) - Number(a.id));
+
+    const signups = sorted.map(p => {
+      const owner = (p.owner || '').toLowerCase();
+      // Generate referral tag (8 uppercase hex characters from owner address)
+      const referralTag = owner.length >= 10
+        ? owner.slice(-8).toUpperCase()
+        : (owner || 'N/A').toUpperCase();
+
+      let referredByDisplay = 'Direct';
+      if (p.referredBy && String(p.referredBy).trim()) {
+        const ref = String(p.referredBy).trim();
+        if (ref.toLowerCase() !== 'direct') {
+          referredByDisplay = ref.startsWith('0x') && ref.length > 14
+            ? `...${ref.slice(-13)}`
+            : (ref.startsWith('ref?') ? ref : `ref?${ref}`);
+        }
+      }
+
+      return {
+        id: p.id,
+        createdAt: p.createdAt,
+        address: owner,
+        referralTag,
+        referredBy: p.referredBy || null,
+        referredByDisplay,
+        tokenSymbol: p.tokenSymbol || 'USDT'
+      };
+    });
+
+    res.json({ ok: true, total: signups.length, signups });
+  } catch (err) {
+    console.error('[GET /api/signups]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+
