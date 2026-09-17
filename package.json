@@ -8,6 +8,7 @@
     "build": "mkdir -p public/ref public/super && cp frontend/index.html public/index.html && cp frontend/super.html public/super.html && cp frontend/index.html public/ref/index.html && cp frontend/super.html public/super/index.html"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.2",

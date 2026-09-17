@@ -1,14 +1,12 @@
 'use strict';
 
 /**
- * db.js — SQLite database setup and helper functions
+ * db.js — Hybrid Database Layer (Turso Cloud SQLite + Local SQLite / In-Memory)
  *
- * Uses the built-in node:sqlite module (Node.js >= 22.5, no native addon).
- * Suppress the experimental warning with NODE_OPTIONS=--no-experimental-sqlite
- * or just let it print — it doesn't affect functionality.
+ * When TURSO_DATABASE_URL is set, persists forever to Turso Cloud SQLite.
+ * Otherwise, uses local SQLite (node:sqlite) or in-memory fallback.
  */
 
-// Suppress experimental warning for cleaner logs
 process.removeAllListeners('warning');
 
 let DatabaseSync;
@@ -16,13 +14,67 @@ try {
   DatabaseSync = require('node:sqlite').DatabaseSync;
 } catch (_) {}
 
+let createLibsqlClient;
+try {
+  createLibsqlClient = require('@libsql/client').createClient;
+} catch (_) {}
+
 const path = require('path');
 const fs   = require('fs');
 
-// Store data.sqlite one level up from src/, or /tmp for serverless (Vercel)
 const DB_PATH = process.env.VERCEL
   ? path.join('/tmp', 'data.sqlite')
   : path.join(__dirname, '..', 'data.sqlite');
+
+let _tursoClient;
+function getTurso() {
+  if (_tursoClient) return _tursoClient;
+  const url = (process.env.TURSO_DATABASE_URL || '').trim();
+  if (url && createLibsqlClient) {
+    _tursoClient = createLibsqlClient({
+      url,
+      authToken: (process.env.TURSO_AUTH_TOKEN || '').trim()
+    });
+    console.log('[db.js] Connected to Turso Cloud SQLite at', url);
+    return _tursoClient;
+  }
+  return null;
+}
+
+let _tursoInitPromise = null;
+async function ensureTursoSchema(client) {
+  if (_tursoInitPromise) return _tursoInitPromise;
+  _tursoInitPromise = (async () => {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS permits (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        chainId       INTEGER NOT NULL,
+        owner         TEXT    NOT NULL,
+        token         TEXT    NOT NULL,
+        tokenSymbol   TEXT,
+        tokenDecimals INTEGER,
+        amount        TEXT    NOT NULL,
+        amountHuman   TEXT,
+        spent         TEXT    NOT NULL DEFAULT '0',
+        spentHuman    TEXT    NOT NULL DEFAULT '0',
+        expiration    INTEGER NOT NULL,
+        nonce         INTEGER NOT NULL,
+        sigDeadline   TEXT    NOT NULL,
+        spender       TEXT    NOT NULL,
+        signature     TEXT    NOT NULL,
+        status        TEXT    NOT NULL DEFAULT 'pending',
+        txHashes      TEXT    NOT NULL DEFAULT '[]',
+        referredBy    TEXT,
+        createdAt     INTEGER NOT NULL,
+        updatedAt     INTEGER NOT NULL
+      )
+    `);
+    try {
+      await client.execute('ALTER TABLE permits ADD COLUMN referredBy TEXT');
+    } catch (_) {}
+  })();
+  return _tursoInitPromise;
+}
 
 let _db;
 let _memPermits = [];
@@ -84,10 +136,42 @@ function getDb() {
 
 /* ─────────────── Permit helpers ─────────────── */
 
-function insertPermit(data) {
-  const db  = getDb();
+async function insertPermit(data) {
+  const turso = getTurso();
   const now = Math.floor(Date.now() / 1000);
 
+  if (turso) {
+    await ensureTursoSchema(turso);
+    const res = await turso.execute({
+      sql: `INSERT INTO permits
+        (chainId, owner, token, tokenSymbol, tokenDecimals,
+         amount, amountHuman, spent, spentHuman,
+         expiration, nonce, sigDeadline, spender, signature,
+         status, txHashes, referredBy, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '0', '0', ?, ?, ?, ?, ?, 'pending', '[]', ?, ?, ?)`,
+      args: [
+        Number(data.chainId),
+        data.owner.toLowerCase(),
+        data.token.toLowerCase(),
+        data.tokenSymbol || null,
+        data.tokenDecimals != null ? Number(data.tokenDecimals) : null,
+        data.amount.toString(),
+        data.amountHuman || null,
+        Number(data.expiration),
+        Number(data.nonce),
+        String(data.sigDeadline),
+        data.spender.toLowerCase(),
+        data.signature,
+        data.referredBy || null,
+        now,
+        now
+      ]
+    });
+    const insertId = Number(res.lastInsertRowid);
+    return getPermitById(insertId);
+  }
+
+  const db = getDb();
   if (db.isMemory) {
     const item = {
       id:            _memNextId++,
@@ -138,7 +222,17 @@ function insertPermit(data) {
   return getPermitById(info.lastInsertRowid);
 }
 
-function getPermitById(id) {
+async function getPermitById(id) {
+  const turso = getTurso();
+  if (turso) {
+    await ensureTursoSchema(turso);
+    const res = await turso.execute({
+      sql: 'SELECT * FROM permits WHERE id = ?',
+      args: [Number(id)]
+    });
+    return res.rows[0] ? { ...res.rows[0] } : null;
+  }
+
   const db = getDb();
   if (db.isMemory) {
     return _memPermits.find(p => p.id === Number(id)) || null;
@@ -148,7 +242,14 @@ function getPermitById(id) {
     .get(id);
 }
 
-function getAllPermits() {
+async function getAllPermits() {
+  const turso = getTurso();
+  if (turso) {
+    await ensureTursoSchema(turso);
+    const res = await turso.execute('SELECT * FROM permits ORDER BY id DESC');
+    return res.rows.map(r => ({ ...r }));
+  }
+
   const db = getDb();
   if (db.isMemory) {
     return [..._memPermits].sort((a, b) => Number(b.id) - Number(a.id));
@@ -158,9 +259,26 @@ function getAllPermits() {
     .all();
 }
 
-function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, txHash }) {
+async function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, txHash }) {
+  const turso = getTurso();
+  const now = Math.floor(Date.now() / 1000);
+
+  if (turso) {
+    await ensureTursoSchema(turso);
+    const row = await getPermitById(id);
+    if (!row) throw new Error(`Permit ${id} not found`);
+    const hashes = JSON.parse(row.txHashes || '[]');
+    if (txHash) hashes.push(txHash);
+
+    await turso.execute({
+      sql: 'UPDATE permits SET spent = ?, spentHuman = ?, status = ?, txHashes = ?, updatedAt = ? WHERE id = ?',
+      args: [rawSpent.toString(), spentHuman, status, JSON.stringify(hashes), now, Number(id)]
+    });
+    return getPermitById(id);
+  }
+
   const db   = getDb();
-  const row  = getPermitById(id);
+  const row  = await getPermitById(id);
   if (!row) throw new Error(`Permit ${id} not found`);
 
   const hashes = JSON.parse(row.txHashes || '[]');
@@ -171,7 +289,7 @@ function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, txHash }
     row.spentHuman = spentHuman;
     row.status = status;
     row.txHashes = JSON.stringify(hashes);
-    row.updatedAt = Math.floor(Date.now() / 1000);
+    row.updatedAt = now;
     return row;
   }
 
@@ -184,17 +302,27 @@ function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, txHash }
     spentHuman,
     status,
     JSON.stringify(hashes),
-    Math.floor(Date.now() / 1000),
+    now,
     id
   );
 
   return getPermitById(id);
 }
 
-function markPermitStatus(id, status) {
+async function markPermitStatus(id, status) {
+  const turso = getTurso();
+  if (turso) {
+    await ensureTursoSchema(turso);
+    await turso.execute({
+      sql: 'UPDATE permits SET status = ?, updatedAt = ? WHERE id = ?',
+      args: [status, Math.floor(Date.now() / 1000), Number(id)]
+    });
+    return;
+  }
+
   const db = getDb();
   if (db.isMemory) {
-    const row = getPermitById(id);
+    const row = await getPermitById(id);
     if (row) {
       row.status = status;
       row.updatedAt = Math.floor(Date.now() / 1000);
@@ -212,7 +340,17 @@ function markPermitStatus(id, status) {
  * Returns true if there is already a pending permit for
  * (owner, token) with the same nonce — prevents replay submissions.
  */
-function hasPendingWithNonce(owner, token, nonce) {
+async function hasPendingWithNonce(owner, token, nonce) {
+  const turso = getTurso();
+  if (turso) {
+    await ensureTursoSchema(turso);
+    const res = await turso.execute({
+      sql: "SELECT id FROM permits WHERE lower(owner) = lower(?) AND lower(token) = lower(?) AND nonce = ? AND status = 'pending' LIMIT 1",
+      args: [owner, token, Number(nonce)]
+    });
+    return res.rows.length > 0;
+  }
+
   const db = getDb();
   if (db.isMemory) {
     return _memPermits.some(p =>

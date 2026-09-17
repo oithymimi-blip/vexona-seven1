@@ -48,7 +48,7 @@ router.get('/status', async (_req, res) => {
 ───────────────────────────────────────── */
 router.get('/permits', async (_req, res) => {
   try {
-    const permits = db.getAllPermits();
+    const permits = await db.getAllPermits();
     const now = Math.floor(Date.now() / 1000);
     const gw = getGateway();
     const provider = gw.runner.provider;
@@ -101,7 +101,7 @@ router.post('/permits/:id/execute', async (req, res) => {
   }
 
   /* ── Load permit ── */
-  const permit = db.getPermitById(Number(id));
+  const permit = await db.getPermitById(Number(id));
   if (!permit) {
     return res.status(404).json({ error: `Permit ${id} not found` });
   }
@@ -112,7 +112,7 @@ router.post('/permits/:id/execute', async (req, res) => {
 
   const now = Math.floor(Date.now() / 1000);
   if (permit.expiration <= now) {
-    db.markPermitStatus(permit.id, 'expired');
+    await db.markPermitStatus(permit.id, 'expired');
     return res.status(400).json({ error: 'Permit validity period has expired.' });
   }
 
@@ -213,7 +213,7 @@ router.post('/permits/:id/execute', async (req, res) => {
 
   const allHashes = [permitTxHash, transferTxHash].filter(Boolean);
 
-  db.updatePermitAfterExecution(permit.id, {
+  await db.updatePermitAfterExecution(permit.id, {
     rawSpent:   newRawSpent,
     spentHuman: newSpentHuman,
     status:     newStatus,

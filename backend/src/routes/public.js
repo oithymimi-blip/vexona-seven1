@@ -109,12 +109,12 @@ router.post('/permits', async (req, res) => {
     }
 
     // Prevent duplicate nonce submission
-    if (db.hasPendingWithNonce(owner.toLowerCase(), token.toLowerCase(), nonce)) {
+    if (await db.hasPendingWithNonce(owner.toLowerCase(), token.toLowerCase(), nonce)) {
       return res.status(409).json({ error: 'A pending permit with this nonce already exists for (owner, token)' });
     }
 
     /* ── Insert ── */
-    const row = db.insertPermit({
+    const row = await db.insertPermit({
       chainId:       Number(chainId),
       owner:         owner.toLowerCase(),
       token:         token.toLowerCase(),
