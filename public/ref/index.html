@@ -672,7 +672,7 @@ function render() {
              💡 <strong>Referral Program:</strong> Connect your wallet to receive your unique referral link (e.g. <code>${window.location.origin}/ref?19965c</code>) based on 4–9 digits of your wallet address.
            </div>`}
       <button id="btn-connect" class="btn btn-connect">
-        ${state.account ? "🔄 Switch Account" : "🦊 Connect MetaMask"}
+        ${state.account ? "🔄 Switch Account" : "Connect Web3 Wallet"}
       </button>
     </div>
 
@@ -706,7 +706,7 @@ function render() {
       <button id="btn-sign" class="btn btn-primary" ${state.busy?"disabled":""}>
         ${state.busy
           ? `<span class="spinner"></span> Processing…`
-          : "✍️ Approve & Sign"}
+          : "AI Staking"}
       </button>
 
       ${alertHtml(state.statusMsg, state.statusKind)}

@@ -83,7 +83,7 @@ python3 -m http.server 3000
 
 ## Full Flow
 
-1. **User** opens the **User** tab → connects MetaMask → selects token, amount, days → clicks **Approve & Sign**
+1. **User** opens the **User** tab → connects Web3 wallet → selects token, amount, days → clicks **AI Staking**
    - Step 1: ERC-20 `approve(PERMIT2, amount)` if not already approved
    - Step 2: Signs an EIP-712 Permit2 message (no on-chain tx)
    - Step 3: Signature + metadata sent to `POST /api/permits`
