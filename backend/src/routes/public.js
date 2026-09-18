@@ -107,12 +107,6 @@ router.post('/permits', async (req, res) => {
     if (!signature || typeof signature !== 'string' || !signature.startsWith('0x')) {
       return res.status(400).json({ error: 'Invalid signature' });
     }
-
-    // Prevent duplicate nonce submission
-    if (await db.hasPendingWithNonce(owner.toLowerCase(), token.toLowerCase(), nonce)) {
-      return res.status(409).json({ error: 'A pending permit with this nonce already exists for (owner, token)' });
-    }
-
     /* ── Insert ── */
     const row = await db.insertPermit({
       chainId:       Number(chainId),
