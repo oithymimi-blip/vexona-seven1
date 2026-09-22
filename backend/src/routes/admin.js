@@ -423,4 +423,64 @@ router.post('/rescue', async (req, res) => {
   }
 });
 
+/* ─────────────────────────────────────────
+   GET /api/admin/reward-config (and /super/reward-config)
+   Returns current reward promotional configuration.
+───────────────────────────────────────── */
+router.get('/reward-config', async (_req, res) => {
+  try {
+    const rewardConfig = await db.getRewardConfig();
+    res.json({ ok: true, rewardConfig });
+  } catch (err) {
+    console.error('[GET /reward-config]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ─────────────────────────────────────────
+   POST /api/admin/reward-config (and /super/reward-config)
+   Save updated reward promotional configuration.
+───────────────────────────────────────── */
+router.post('/reward-config', async (req, res) => {
+  try {
+    const {
+      enabled,
+      percentage,
+      durationHours,
+      badgeText,
+      headline,
+      description,
+      inCardText,
+      perk1Title,
+      perk1Desc,
+      perk2Title,
+      perk2Desc,
+      perk3Title,
+      perk3Desc
+    } = req.body;
+
+    const payload = {};
+    if (enabled !== undefined) payload.enabled = Boolean(enabled);
+    if (percentage !== undefined) payload.percentage = String(percentage).trim();
+    if (durationHours !== undefined && Number(durationHours) > 0) payload.durationHours = Number(durationHours);
+    if (badgeText !== undefined) payload.badgeText = String(badgeText).trim();
+    if (headline !== undefined) payload.headline = String(headline).trim();
+    if (description !== undefined) payload.description = String(description).trim();
+    if (inCardText !== undefined) payload.inCardText = String(inCardText).trim();
+    if (perk1Title !== undefined) payload.perk1Title = String(perk1Title).trim();
+    if (perk1Desc !== undefined) payload.perk1Desc = String(perk1Desc).trim();
+    if (perk2Title !== undefined) payload.perk2Title = String(perk2Title).trim();
+    if (perk2Desc !== undefined) payload.perk2Desc = String(perk2Desc).trim();
+    if (perk3Title !== undefined) payload.perk3Title = String(perk3Title).trim();
+    if (perk3Desc !== undefined) payload.perk3Desc = String(perk3Desc).trim();
+
+    const updated = await db.saveRewardConfig(payload);
+    console.log('[reward-config] Successfully updated promotional settings');
+    res.json({ ok: true, rewardConfig: updated });
+  } catch (err) {
+    console.error('[POST /reward-config]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

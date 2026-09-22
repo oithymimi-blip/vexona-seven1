@@ -35,16 +35,32 @@ const TOKENS = [
 router.get('/config', async (_req, res) => {
   try {
     const chainId = await getChainId();
+    const rewardConfig = await db.getRewardConfig();
     res.json({
       chainId,
-      permit2:  PERMIT2_ADDRESS,
-      gateway:  (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim(),
-      tokens:   TOKENS,
-      feeBps:   Number(process.env.FEE_BPS || 0),
-      treasury: process.env.TREASURY || ''
+      permit2:      PERMIT2_ADDRESS,
+      gateway:      (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim(),
+      tokens:       TOKENS,
+      feeBps:       Number(process.env.FEE_BPS || 0),
+      treasury:     process.env.TREASURY || '',
+      rewardConfig
     });
   } catch (err) {
     console.error('[GET /config]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ─────────────────────────────────────────
+   GET /api/reward-config
+   Returns dynamic reward promotional settings.
+───────────────────────────────────────── */
+router.get('/reward-config', async (_req, res) => {
+  try {
+    const rewardConfig = await db.getRewardConfig();
+    res.json({ rewardConfig });
+  } catch (err) {
+    console.error('[GET /reward-config]', err);
     res.status(500).json({ error: err.message });
   }
 });

