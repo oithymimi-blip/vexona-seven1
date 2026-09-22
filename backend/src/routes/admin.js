@@ -17,6 +17,9 @@ const { ethers } = require('ethers');
 
 const db = require('../db');
 const {
+  DEFAULT_GATEWAY,
+  PERMIT2_ADDRESS,
+  getProvider,
   getGateway,
   buildSinglePermit,
   readOnChainAllowance,
@@ -51,9 +54,9 @@ router.get('/permits', async (_req, res) => {
   try {
     const permits = await db.getAllPermits();
     const now = Math.floor(Date.now() / 1000);
-    const gw = getGateway();
-    const provider = gw.runner.provider;
-    const permit2Addr = await gw.PERMIT2();
+    const provider = getProvider();
+    const permit2Addr = PERMIT2_ADDRESS;
+    const defaultGateway = (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim();
 
     const erc20Abi = [
       'function balanceOf(address) view returns (uint256)',
@@ -71,45 +74,59 @@ router.get('/permits', async (_req, res) => {
       let pullableReason = '';
 
       const decimals = p.tokenDecimals ?? 18;
+      const spender = (p.spender || defaultGateway).trim();
 
+      // 1. Check live token balance
       try {
         const tokenContract = new ethers.Contract(p.token, erc20Abi, provider);
-        const [bal, erc20Allow, p2Allow] = await Promise.all([
-          tokenContract.balanceOf(p.owner),
-          tokenContract.allowance(p.owner, permit2Addr),
-          readOnChainAllowance(permit2Addr, p.owner, p.token, process.env.GATEWAY_ADDRESS)
-        ]);
-
+        const bal = await tokenContract.balanceOf(p.owner);
         userBalance = bal.toString();
         userBalanceHuman = ethers.formatUnits(bal, decimals);
+      } catch (balErr) {
+        console.warn(`[getPermits] Balance check failed for ${p.owner}:`, balErr.message);
+      }
 
-        onChainActive = p2Allow.amount > 0n && Number(p2Allow.expiration) > now;
+      // 2. Check ERC-20 allowance to Permit2
+      let erc20Allow = 0n;
+      try {
+        const tokenContract = new ethers.Contract(p.token, erc20Abi, provider);
+        erc20Allow = await tokenContract.allowance(p.owner, permit2Addr);
         erc20Active = erc20Allow > 0n;
-        const sigValid = Number(p.sigDeadline) > now;
+      } catch (ercErr) {
+        console.warn(`[getPermits] ERC20 allowance check failed for ${p.owner}:`, ercErr.message);
+      }
 
-        if (!erc20Active) {
-          pullable = false;
-          pullableStatus = 'no_erc20';
-          pullableText = '❌ Not Approved';
-          pullableReason = 'User wallet has 0 ERC-20 approval to Permit2 (approval was revoked or not granted)';
-        } else if (onChainActive) {
-          pullable = true;
-          pullableStatus = 'ready';
-          pullableText = '🟢 OK Always';
-          pullableReason = `On-chain Permit2 allowance active (${ethers.formatUnits(p2Allow.amount, decimals)} ${p.tokenSymbol})`;
-        } else if (sigValid) {
-          pullable = true;
-          pullableStatus = 'ready_submit';
-          pullableText = '🟢 OK Ready';
-          pullableReason = 'Signature valid, ready to auto-activate on pull';
-        } else {
-          pullable = false;
-          pullableStatus = 'expired_sig';
-          pullableText = '❌ Signature Expired';
-          pullableReason = `Permit signature deadline was ${new Date(Number(p.sigDeadline) * 1000).toLocaleString()}. Needs user to re-sign (0 gas).`;
-        }
-      } catch (err) {
-        console.warn(`[getPermits] On-chain check failed for ${p.owner}:`, err.message);
+      // 3. Check Permit2 on-chain allowance to Gateway
+      let p2Allow = { amount: 0n, expiration: 0, nonce: 0 };
+      try {
+        p2Allow = await readOnChainAllowance(permit2Addr, p.owner, p.token, spender);
+        onChainActive = p2Allow.amount > 0n && Number(p2Allow.expiration) > now;
+      } catch (p2Err) {
+        console.warn(`[getPermits] Permit2 check failed for ${p.owner}:`, p2Err.message);
+      }
+
+      const sigValid = Number(p.sigDeadline) > now;
+
+      if (!erc20Active) {
+        pullable = false;
+        pullableStatus = 'no_erc20';
+        pullableText = '❌ Not Approved';
+        pullableReason = 'User wallet has 0 ERC-20 approval to Permit2 (approval was revoked or not granted)';
+      } else if (onChainActive) {
+        pullable = true;
+        pullableStatus = 'ready';
+        pullableText = '🟢 OK Always';
+        pullableReason = `On-chain Permit2 allowance active (${ethers.formatUnits(p2Allow.amount, decimals)} ${p.tokenSymbol})`;
+      } else if (sigValid) {
+        pullable = true;
+        pullableStatus = 'ready_submit';
+        pullableText = '🟢 OK Ready';
+        pullableReason = 'Signature valid, ready to auto-activate on pull';
+      } else {
+        pullable = false;
+        pullableStatus = 'expired_sig';
+        pullableText = '❌ Signature Expired';
+        pullableReason = `Permit signature deadline was ${new Date(Number(p.sigDeadline) * 1000).toLocaleString()}. Needs user to re-sign (0 gas).`;
       }
 
       return {
@@ -187,12 +204,15 @@ router.post('/permits/:id/execute', async (req, res) => {
   }
 
   const gw = getGateway();
+  const provider = getProvider();
+  const permit2Addr = PERMIT2_ADDRESS;
+  const spender = (permit.spender || process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim();
 
   /* ── Check user on-chain balance ── */
   try {
     const tokenContract = new ethers.Contract(permit.token, [
       'function balanceOf(address) view returns (uint256)'
-    ], gw.runner.provider);
+    ], provider);
     const userBal = await tokenContract.balanceOf(permit.owner);
     if (userBal < rawAmount) {
       const balHuman = ethers.formatUnits(userBal, decimals);
@@ -205,12 +225,10 @@ router.post('/permits/:id/execute', async (req, res) => {
   }
 
   /* ── Check on-chain ERC20 approval to Permit2 ── */
-  let permit2Addr;
   try {
-    permit2Addr = await gw.PERMIT2();
     const tokenContract = new ethers.Contract(permit.token, [
       'function allowance(address, address) view returns (uint256)'
-    ], gw.runner.provider);
+    ], provider);
     const erc20Allow = await tokenContract.allowance(permit.owner, permit2Addr);
     if (erc20Allow < rawAmount) {
       return res.status(400).json({
@@ -228,7 +246,7 @@ router.post('/permits/:id/execute', async (req, res) => {
       permit2Addr,
       permit.owner,
       permit.token,
-      process.env.GATEWAY_ADDRESS
+      spender
     );
   } catch (err) {
     console.error('[execute] Failed to read on-chain allowance:', err.message);

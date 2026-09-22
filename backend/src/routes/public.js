@@ -11,7 +11,14 @@ const express = require('express');
 const { ethers } = require('ethers');
 
 const db    = require('../db');
-const { getChainId, getGateway, buildSinglePermit, decodeContractError } = require('../contract');
+const {
+  getChainId,
+  getGateway,
+  buildSinglePermit,
+  decodeContractError,
+  DEFAULT_GATEWAY,
+  PERMIT2_ADDRESS
+} = require('../contract');
 const { isAddress, isPositiveInt } = require('../middleware');
 
 const router = express.Router();
@@ -30,8 +37,8 @@ router.get('/config', async (_req, res) => {
     const chainId = await getChainId();
     res.json({
       chainId,
-      permit2:  '0x000000000022D473030F116dDEE9F6B43aC78BA3',
-      gateway:  process.env.GATEWAY_ADDRESS,
+      permit2:  PERMIT2_ADDRESS,
+      gateway:  (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim(),
       tokens:   TOKENS,
       feeBps:   Number(process.env.FEE_BPS || 0),
       treasury: process.env.TREASURY || ''
@@ -79,7 +86,8 @@ router.post('/permits', async (req, res) => {
       return res.status(400).json({ error: 'Invalid token address' });
     }
 
-    if (!spender || spender.toLowerCase() !== process.env.GATEWAY_ADDRESS.toLowerCase()) {
+    const expectedGateway = (process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim().toLowerCase();
+    if (!spender || spender.toLowerCase() !== expectedGateway) {
       return res.status(400).json({ error: 'spender must be the GATEWAY_ADDRESS' });
     }
 

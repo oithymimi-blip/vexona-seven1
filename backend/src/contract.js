@@ -58,6 +58,7 @@ let _gateway;
 let _permit2;
 
 const DEFAULT_GATEWAY = '0x0c215808bf5251A47938C40971372f2DeCe7e507';
+const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 const DEFAULT_RPC     = 'https://bsc-dataseed.binance.org';
 
 function getProvider() {
@@ -91,7 +92,8 @@ function getGateway(withSigner = true) {
 }
 
 function getPermit2(address) {
-  return new ethers.Contract(address, PERMIT2_ABI, getProvider());
+  const addr = (address || PERMIT2_ADDRESS).trim();
+  return new ethers.Contract(addr, PERMIT2_ABI, getProvider());
 }
 
 /* ─────────────── Helpers ─────────────── */
@@ -116,8 +118,10 @@ function buildSinglePermit(row) {
  * Read on-chain Permit2 allowance for (owner, token, gateway).
  */
 async function readOnChainAllowance(permit2Address, owner, token, spender) {
-  const permit2 = getPermit2(permit2Address);
-  const [amount, expiration, nonce] = await permit2.allowance(owner, token, spender);
+  const safePermit2 = (permit2Address || PERMIT2_ADDRESS).trim();
+  const safeSpender = (spender || process.env.GATEWAY_ADDRESS || DEFAULT_GATEWAY).trim();
+  const permit2 = getPermit2(safePermit2);
+  const [amount, expiration, nonce] = await permit2.allowance(owner, token, safeSpender);
   return {
     amount:     BigInt(amount),
     expiration: Number(expiration),
@@ -211,6 +215,8 @@ function decodeContractError(err) {
 }
 
 module.exports = {
+  DEFAULT_GATEWAY,
+  PERMIT2_ADDRESS,
   getProvider,
   getWallet,
   getGateway,
