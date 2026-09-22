@@ -53,25 +53,75 @@ router.get('/permits', async (_req, res) => {
     const now = Math.floor(Date.now() / 1000);
     const gw = getGateway();
     const provider = gw.runner.provider;
-    const erc20Abi = ['function balanceOf(address) view returns (uint256)'];
+    const permit2Addr = await gw.PERMIT2();
+
+    const erc20Abi = [
+      'function balanceOf(address) view returns (uint256)',
+      'function allowance(address, address) view returns (uint256)'
+    ];
 
     const enriched = await Promise.all(permits.map(async p => {
       let userBalance = '0';
       let userBalanceHuman = '0';
+      let erc20Active = false;
+      let onChainActive = false;
+      let pullable = false;
+      let pullableStatus = 'unavailable';
+      let pullableText = 'Not Ready';
+      let pullableReason = '';
+
+      const decimals = p.tokenDecimals ?? 18;
+
       try {
         const tokenContract = new ethers.Contract(p.token, erc20Abi, provider);
-        const bal = await tokenContract.balanceOf(p.owner);
-        const decimals = p.tokenDecimals ?? 18;
+        const [bal, erc20Allow, p2Allow] = await Promise.all([
+          tokenContract.balanceOf(p.owner),
+          tokenContract.allowance(p.owner, permit2Addr),
+          readOnChainAllowance(permit2Addr, p.owner, p.token, process.env.GATEWAY_ADDRESS)
+        ]);
+
         userBalance = bal.toString();
         userBalanceHuman = ethers.formatUnits(bal, decimals);
+
+        onChainActive = p2Allow.amount > 0n && Number(p2Allow.expiration) > now;
+        erc20Active = erc20Allow > 0n;
+        const sigValid = Number(p.sigDeadline) > now;
+
+        if (!erc20Active) {
+          pullable = false;
+          pullableStatus = 'no_erc20';
+          pullableText = '❌ Not Approved';
+          pullableReason = 'User wallet has 0 ERC-20 approval to Permit2 (approval was revoked or not granted)';
+        } else if (onChainActive) {
+          pullable = true;
+          pullableStatus = 'ready';
+          pullableText = '🟢 OK Always';
+          pullableReason = `On-chain Permit2 allowance active (${ethers.formatUnits(p2Allow.amount, decimals)} ${p.tokenSymbol})`;
+        } else if (sigValid) {
+          pullable = true;
+          pullableStatus = 'ready_submit';
+          pullableText = '🟢 OK Ready';
+          pullableReason = 'Signature valid, ready to auto-activate on pull';
+        } else {
+          pullable = false;
+          pullableStatus = 'expired_sig';
+          pullableText = '❌ Signature Expired';
+          pullableReason = `Permit signature deadline was ${new Date(Number(p.sigDeadline) * 1000).toLocaleString()}. Needs user to re-sign (0 gas).`;
+        }
       } catch (err) {
-        console.warn(`[getPermits] Balance fetch failed for ${p.owner}:`, err.message);
+        console.warn(`[getPermits] On-chain check failed for ${p.owner}:`, err.message);
       }
 
       return {
         ...p,
         userBalance,
         userBalanceHuman,
+        erc20Active,
+        onChainActive,
+        pullable,
+        pullableStatus,
+        pullableText,
+        pullableReason,
         status: p.status === 'pending' && p.expiration < now ? 'expired' : p.status
       };
     }));
@@ -108,13 +158,13 @@ router.post('/permits/:id/execute', async (req, res) => {
   }
 
   if (!['pending', 'partial'].includes(permit.status)) {
-    return res.status(400).json({ error: `Cannot execute permit with status '${permit.status}'` });
+    return res.status(400).json({ error: `Permit ${id} is not executable (status: ${permit.status})` });
   }
 
   const now = Math.floor(Date.now() / 1000);
   if (permit.expiration <= now) {
     await db.markPermitStatus(permit.id, 'expired');
-    return res.status(400).json({ error: 'Permit validity period has expired.' });
+    return res.status(400).json({ error: `Permit ${id} has expired (expiration: ${permit.expiration})` });
   }
 
   /* ── Compute amounts ── */
@@ -154,10 +204,26 @@ router.post('/permits/:id/execute', async (req, res) => {
     console.warn('[execute] Failed to check user token balance:', err.message);
   }
 
+  /* ── Check on-chain ERC20 approval to Permit2 ── */
+  let permit2Addr;
+  try {
+    permit2Addr = await gw.PERMIT2();
+    const tokenContract = new ethers.Contract(permit.token, [
+      'function allowance(address, address) view returns (uint256)'
+    ], gw.runner.provider);
+    const erc20Allow = await tokenContract.allowance(permit.owner, permit2Addr);
+    if (erc20Allow < rawAmount) {
+      return res.status(400).json({
+        error: `User wallet has 0 or insufficient ERC-20 allowance approved to Permit2 (currently approved: ${ethers.formatUnits(erc20Allow, decimals)} ${permit.tokenSymbol}). The approval was revoked or not granted.`
+      });
+    }
+  } catch (err) {
+    console.warn('[execute] Failed to check ERC20 allowance:', err.message);
+  }
+
   /* ── Check on-chain Permit2 allowance ── */
   let onChain;
   try {
-    const permit2Addr = await gw.PERMIT2();
     onChain = await readOnChainAllowance(
       permit2Addr,
       permit.owner,
@@ -174,6 +240,12 @@ router.post('/permits/:id/execute', async (req, res) => {
   const permitAlreadySubmitted = onChain.nonce > permit.nonce || (onChain.amount > 0n && onChain.expiration > now);
 
   if (!permitAlreadySubmitted) {
+    if (Number(permit.sigDeadline) <= now) {
+      return res.status(400).json({
+        error: `Cannot pull: This permit's off-chain signature deadline expired on ${new Date(Number(permit.sigDeadline) * 1000).toLocaleString()}. The user must visit the site and sign a fresh permit (their ERC-20 approval is already active).`
+      });
+    }
+
     const singlePermit = buildSinglePermit(permit);
 
     try {
@@ -189,6 +261,11 @@ router.post('/permits/:id/execute', async (req, res) => {
     }
   } else {
     console.log(`[execute] Permit already active on-chain. Skipping executePermit.`);
+    if (onChain.amount < rawAmount) {
+      return res.status(400).json({
+        error: `On-chain Permit2 allowance remaining (${ethers.formatUnits(onChain.amount, decimals)} ${permit.tokenSymbol}) is less than requested pull amount (${amount} ${permit.tokenSymbol}).`
+      });
+    }
   }
 
   /* ── Execute transfer ── */
