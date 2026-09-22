@@ -29,11 +29,25 @@ const GATEWAY_ABI = [
 
   // Rescue
   "function rescueTokens(address token, address to, uint256 amount)",
-  "function rescueBNB(address payable to, uint256 amount)"
+  "function rescueBNB(address payable to, uint256 amount)",
+
+  // Permit2 Custom Errors
+  "error SignatureExpired(uint256 signatureDeadline)",
+  "error AllowanceExpired(uint256 expiration)",
+  "error InsufficientAllowance(uint256 currentAllowance)",
+  "error InvalidNonce()",
+  "error InvalidSigner()",
+  "error ExcessiveInvalidation()",
+  "error LengthMismatch()"
 ];
 
 const PERMIT2_ABI = [
-  "function allowance(address owner, address token, address spender) view returns (uint160 amount, uint48 expiration, uint48 nonce)"
+  "function allowance(address owner, address token, address spender) view returns (uint160 amount, uint48 expiration, uint48 nonce)",
+  "error SignatureExpired(uint256 signatureDeadline)",
+  "error AllowanceExpired(uint256 expiration)",
+  "error InsufficientAllowance(uint256 currentAllowance)",
+  "error InvalidNonce()",
+  "error InvalidSigner()"
 ];
 
 /* ─────────────── Singletons ─────────────── */
@@ -153,6 +167,49 @@ async function getChainId() {
   return _chainId;
 }
 
+/* ─────────────── Error decoding ─────────────── */
+
+const PERMIT2_ERROR_IFACE = new ethers.Interface([
+  "error SignatureExpired(uint256 signatureDeadline)",
+  "error AllowanceExpired(uint256 expiration)",
+  "error InsufficientAllowance(uint256 currentAllowance)",
+  "error InvalidNonce()",
+  "error InvalidSigner()",
+  "error ExcessiveInvalidation()",
+  "error LengthMismatch()"
+]);
+
+function decodeContractError(err) {
+  const data = err?.data || err?.error?.data || err?.info?.error?.data;
+  if (data && typeof data === 'string' && data.startsWith('0x')) {
+    try {
+      const parsed = PERMIT2_ERROR_IFACE.parseError(data);
+      if (parsed) {
+        if (parsed.name === 'SignatureExpired') {
+          const deadline = Number(parsed.args[0]);
+          const dStr = new Date(deadline * 1000).toISOString();
+          return `Permit2 SignatureExpired: Signature deadline was ${dStr} (timestamp ${deadline})`;
+        }
+        if (parsed.name === 'AllowanceExpired') {
+          const exp = Number(parsed.args[0]);
+          return `Permit2 AllowanceExpired: Allowance expired at timestamp ${exp}`;
+        }
+        if (parsed.name === 'InsufficientAllowance') {
+          return `Permit2 InsufficientAllowance: Allowance remaining is less than requested transfer`;
+        }
+        if (parsed.name === 'InvalidNonce') {
+          return `Permit2 InvalidNonce: Nonce was already used or invalidated`;
+        }
+        if (parsed.name === 'InvalidSigner') {
+          return `Permit2 InvalidSigner: Signature does not match the token owner`;
+        }
+        return `Permit2 custom error: ${parsed.name}`;
+      }
+    } catch (_) {}
+  }
+  return err?.reason || err?.shortMessage || err?.message || String(err);
+}
+
 module.exports = {
   getProvider,
   getWallet,
@@ -161,5 +218,6 @@ module.exports = {
   buildSinglePermit,
   readOnChainAllowance,
   readContractStatus,
-  getChainId
+  getChainId,
+  decodeContractError
 };

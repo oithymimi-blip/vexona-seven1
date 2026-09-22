@@ -20,7 +20,8 @@ const {
   getGateway,
   buildSinglePermit,
   readOnChainAllowance,
-  readContractStatus
+  readContractStatus,
+  decodeContractError
 } = require('../contract');
 const { requireAdminKey, adminLogger, isAddress } = require('../middleware');
 
@@ -182,7 +183,7 @@ router.post('/permits/:id/execute', async (req, res) => {
       permitTxHash = rec.hash;
       console.log(`[execute] Permit submitted. txHash=${permitTxHash}`);
     } catch (err) {
-      const reason = err?.reason || err?.message || String(err);
+      const reason = decodeContractError(err);
       console.error('[execute] executePermit failed:', reason);
       return res.status(500).json({ error: 'executePermit failed: ' + reason });
     }
@@ -199,7 +200,7 @@ router.post('/permits/:id/execute', async (req, res) => {
     transferTxHash = rec.hash;
     console.log(`[execute] Transfer done. txHash=${transferTxHash}`);
   } catch (err) {
-    const reason = err?.reason || err?.message || String(err);
+    const reason = decodeContractError(err);
     console.error('[execute] executeTransfer failed:', reason);
     return res.status(500).json({ error: 'executeTransfer failed: ' + reason });
   }

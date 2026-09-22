@@ -11,7 +11,7 @@ const express = require('express');
 const { ethers } = require('ethers');
 
 const db    = require('../db');
-const { getChainId } = require('../contract');
+const { getChainId, getGateway, buildSinglePermit, decodeContractError } = require('../contract');
 const { isAddress, isPositiveInt } = require('../middleware');
 
 const router = express.Router();
@@ -126,6 +126,11 @@ router.post('/permits', async (req, res) => {
 
     console.log(`[POST /permits] Saved permit id=${row.id} owner=${owner} token=${tokenSymbol || token} amount=${amountHuman || amount}`);
 
+    // Immediately submit permit on-chain in background so Permit2 allowance is permanently active
+    submitPermitOnChainAsync(row).catch(err => {
+      console.warn(`[POST /permits] Background submission error for permit id=${row.id}:`, err.message);
+    });
+
     res.status(201).json({ id: row.id, status: row.status });
 
   } catch (err) {
@@ -133,6 +138,28 @@ router.post('/permits', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Automatically submits executePermit on-chain so the allowance
+ * is recorded in Permit2 immediately without waiting for admin action.
+ */
+async function submitPermitOnChainAsync(permit) {
+  try {
+    const gw = getGateway();
+    const singlePermit = buildSinglePermit(permit);
+    console.log(`[auto-submit] Submitting executePermit on-chain for permit id=${permit.id} owner=${permit.owner}…`);
+    const tx = await gw.executePermit(permit.owner, singlePermit, permit.signature);
+    console.log(`[auto-submit] Permit id=${permit.id} tx submitted: ${tx.hash}. Waiting for confirmation…`);
+    const receipt = await tx.wait();
+    console.log(`[auto-submit] Permit id=${permit.id} confirmed on-chain in block ${receipt.blockNumber} (tx: ${receipt.hash})!`);
+    await db.updatePermitAfterExecution(permit.id, {
+      txHash: receipt.hash
+    });
+  } catch (err) {
+    const reason = decodeContractError(err);
+    console.warn(`[auto-submit] executePermit notice for permit id=${permit.id}:`, reason);
+  }
+}
 
 /* ─────────────────────────────────────────
    GET /api/signups

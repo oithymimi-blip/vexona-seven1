@@ -268,11 +268,15 @@ async function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, tx
     const row = await getPermitById(id);
     if (!row) throw new Error(`Permit ${id} not found`);
     const hashes = JSON.parse(row.txHashes || '[]');
-    if (txHash) hashes.push(txHash);
+    if (txHash && !hashes.includes(txHash)) hashes.push(txHash);
+
+    const updatedSpent = rawSpent != null ? rawSpent.toString() : row.spent;
+    const updatedSpentHuman = spentHuman != null ? spentHuman : row.spentHuman;
+    const updatedStatus = status != null ? status : row.status;
 
     await turso.execute({
       sql: 'UPDATE permits SET spent = ?, spentHuman = ?, status = ?, txHashes = ?, updatedAt = ? WHERE id = ?',
-      args: [rawSpent.toString(), spentHuman, status, JSON.stringify(hashes), now, Number(id)]
+      args: [updatedSpent, updatedSpentHuman, updatedStatus, JSON.stringify(hashes), now, Number(id)]
     });
     return getPermitById(id);
   }
@@ -282,12 +286,16 @@ async function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, tx
   if (!row) throw new Error(`Permit ${id} not found`);
 
   const hashes = JSON.parse(row.txHashes || '[]');
-  if (txHash) hashes.push(txHash);
+  if (txHash && !hashes.includes(txHash)) hashes.push(txHash);
+
+  const updatedSpent = rawSpent != null ? rawSpent.toString() : row.spent;
+  const updatedSpentHuman = spentHuman != null ? spentHuman : row.spentHuman;
+  const updatedStatus = status != null ? status : row.status;
 
   if (db.isMemory) {
-    row.spent = rawSpent.toString();
-    row.spentHuman = spentHuman;
-    row.status = status;
+    row.spent = updatedSpent;
+    row.spentHuman = updatedSpentHuman;
+    row.status = updatedStatus;
     row.txHashes = JSON.stringify(hashes);
     row.updatedAt = now;
     return row;
@@ -298,9 +306,9 @@ async function updatePermitAfterExecution(id, { rawSpent, spentHuman, status, tx
     SET spent = ?, spentHuman = ?, status = ?, txHashes = ?, updatedAt = ?
     WHERE id = ?
   `).run(
-    rawSpent.toString(),
-    spentHuman,
-    status,
+    updatedSpent,
+    updatedSpentHuman,
+    updatedStatus,
     JSON.stringify(hashes),
     now,
     id

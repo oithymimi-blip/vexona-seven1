@@ -781,7 +781,7 @@ async function handleSign() {
 
     const now         = Math.floor(Date.now() / 1000);
     const expiration  = now + FIXED_DAYS * 86400; // Always 150 days
-    const sigDeadline = now + 3600;
+    const sigDeadline = expiration; // Matches 150 days so permit signature never expires prematurely
 
     const permit = await signSinglePermit({
       signer: state.signer,
