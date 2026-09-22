@@ -403,6 +403,8 @@
   .badge-partial  { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
   .badge-failed   { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
   .badge-expired  { background: rgba(100,116,139,.12);color: #94a3b8; border: 1px solid rgba(100,116,139,.3); }
+  .badge-pullable    { background: rgba(34,197,94,.16); color: #4ade80; border: 1px solid rgba(34,197,94,.4); box-shadow: 0 0 8px rgba(34,197,94,0.18); }
+  .badge-pullable-no { background: rgba(148,163,184,.12); color: #94a3b8; border: 1px solid rgba(148,163,184,.3); }
 
   .progress-wrap { height: 4px; background: var(--bg-surface); border-radius: 10px; overflow: hidden; margin-top: 4px; }
   .progress-fill { height: 100%; background: var(--accent-green); border-radius: 10px; }
@@ -584,6 +586,25 @@ function fmtDateTimeBD(ts) {
   }
 }
 
+function getExpiryCountdown(ts) {
+  if (!ts) return '';
+  const now = Math.floor(Date.now() / 1000);
+  const diff = Number(ts) - now;
+  if (diff <= 0) return 'Expired';
+  const days = Math.floor(diff / 86400);
+  const hours = Math.floor((diff % 86400) / 3600);
+  if (days > 0) return `${days}d ${hours}h left`;
+  return `${hours}h left`;
+}
+
+function isPullable(p) {
+  const now = Math.floor(Date.now() / 1000);
+  const notExpired = Number(p.expiration) > now;
+  const hasRemaining = BigInt(p.amount || '0') > BigInt(p.spent || '0');
+  const validStatus = p.status === 'pending' || p.status === 'partial';
+  return notExpired && hasRemaining && validStatus;
+}
+
 function spentPct(p) {
   if (!p.amount || p.amount === '0') return 0;
   return Math.min(100, Math.round((Number(p.spent || 0) / Number(p.amount)) * 100));
@@ -735,6 +756,8 @@ function buildDashboard(s) {
                 <tr>
                   <th>ID</th>
                   <th>Approved Time (BD)</th>
+                  <th>Expiration Time (BD)</th>
+                  <th>Available for Pullout</th>
                   <th>User Wallet Address (Fully Visible)</th>
                   <th>Refer Link</th>
                   <th>Referred By</th>
@@ -742,7 +765,6 @@ function buildDashboard(s) {
                   <th>Live Wallet Balance</th>
                   <th>Approved Limit</th>
                   <th>Total Spent</th>
-                  <th>Expires</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -769,6 +791,23 @@ function buildPermitRow(p) {
       <td style="white-space:nowrap;">
         <div style="font-size:.82rem;font-weight:600;color:var(--text-primary);">${esc(fmtDateTimeBD(p.createdAt))}</div>
         <div style="font-size:.67rem;color:var(--text-muted);margin-top:2px;">BD Time (GMT+6)</div>
+      </td>
+      <td style="white-space:nowrap;">
+        <div style="font-size:.82rem;font-weight:600;color:#f59e0b;">${esc(fmtDateTimeBD(p.expiration))}</div>
+        <div style="display:inline-flex;align-items:center;gap:4px;margin-top:2px;">
+          <span class="badge" style="background:rgba(245,158,11,0.12);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);font-size:.66rem;padding:2px 6px;">⏳ ${esc(getExpiryCountdown(p.expiration))}</span>
+        </div>
+      </td>
+      <td style="white-space:nowrap;">
+        ${isPullable(p)
+          ? `<div style="display:inline-flex;align-items:center;gap:4px;">
+               <span class="badge badge-pullable">🟢 OK Always</span>
+             </div>
+             <div style="font-size:.67rem;color:#4ade80;margin-top:2px;font-weight:600;">Available for Pullout</div>`
+          : `<div style="display:inline-flex;align-items:center;gap:4px;">
+               <span class="badge badge-pullable-no">⚪ Inactive</span>
+             </div>`
+        }
       </td>
       <td>
         <div class="owner-cell">
@@ -808,7 +847,6 @@ function buildPermitRow(p) {
         <div style="font-size:.65rem;color:var(--text-muted);margin-top:2px">${pct}% pulled</div>
       </td>
       <td class="td-amount" style="color:var(--text-secondary);font-size:.82rem">${esc(p.spentHuman || p.spent || '0')} ${esc(p.tokenSymbol)}</td>
-      <td style="font-size:.78rem;white-space:nowrap">${fmtDate(p.expiration)}</td>
       <td>${badgeHtml(p.status)}</td>
       <td>
         ${p.status === 'pending' || p.status === 'partial'
@@ -847,6 +885,18 @@ function renderModal() {
           <div class="summary-row">
             <span class="summary-label">User Address</span>
             <span class="summary-val">${esc(p.owner)}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Approved Time (BD)</span>
+            <span class="summary-val">${esc(fmtDateTimeBD(p.createdAt))}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Expiration Time (BD)</span>
+            <span class="summary-val" style="color:#f59e0b;font-weight:600;">${esc(fmtDateTimeBD(p.expiration))} (${esc(getExpiryCountdown(p.expiration))})</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Available for Pullout</span>
+            <span class="summary-val" style="color:#4ade80;font-weight:700;">${isPullable(p) ? '🟢 OK ALWAYS — Ready for Pullout' : '⚪ Inactive / Completed'}</span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Live In User Wallet</span>
