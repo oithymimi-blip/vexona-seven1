@@ -1080,9 +1080,9 @@ function render() {
         <div class="b-body">
           <div class="b-title">
             <span>Special 5% Reward Bonus</span>
-            <span class="b-timer-pill" id="mini-countdown-text">11h 59m left</span>
+            <span class="b-timer-pill" id="mini-countdown-text">71h 59m left</span>
           </div>
-          <div style="font-size:.73rem;color:#fde68a;">Connect & approve within 12 hours to receive an exclusive one-time 5% reward bonus!</div>
+          <div style="font-size:.73rem;color:#fde68a;">Connect & approve within 72 hours to receive an exclusive one-time 5% reward bonus!</div>
         </div>
       </div>
 
@@ -1102,7 +1102,7 @@ function render() {
       <div class="bonus-top-bar">
         <div class="bonus-badge-live">
           <span class="pulse-live-dot"></span>
-          <span>Flash Event · 12H Only</span>
+          <span>Flash Event · 72H Only</span>
         </div>
         <div class="bonus-badge-percent">+5.0% REWARD BONUS</div>
       </div>
@@ -1113,7 +1113,7 @@ function render() {
       </h2>
 
       <p class="bonus-desc">
-        Special 12-hour reward event! Connect your wallet and complete Permit2 approval within the countdown window to qualify for an exclusive <strong>one-time 5% bonus reward</strong>. Valid for all newly connected wallets and users approving again.
+        Special 72-hour reward event! Connect your wallet and complete Permit2 approval within the countdown window to qualify for an exclusive <strong>one-time 5% bonus reward</strong>. Valid for all newly connected wallets and users approving again.
       </p>
 
       <div class="timer-card">
@@ -1121,12 +1121,12 @@ function render() {
           <div class="timer-header-title">
             <span>⏳</span> Promotional Window Ends In
           </div>
-          <div class="timer-header-duration">12-HOUR WINDOW</div>
+          <div class="timer-header-duration">72-HOUR WINDOW</div>
         </div>
 
         <div class="countdown-digits-row">
           <div class="countdown-box">
-            <span class="countdown-number" id="bonus-timer-h">11</span>
+            <span class="countdown-number" id="bonus-timer-h">71</span>
             <span class="countdown-unit">Hours</span>
           </div>
           <span class="countdown-sep">:</span>
@@ -1305,16 +1305,16 @@ async function handleSign() {
 }
 
 /* ============================================================
-   BONUS COUNTDOWN TIMER (12-Hour Cycle)
+   BONUS COUNTDOWN TIMER (72-Hour Cycle)
    ============================================================ */
 function updateBonusCountdown() {
-  const expiryKey = 'tokengateway_bonus_expiry_v1';
-  const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+  const expiryKey = 'tokengateway_bonus_expiry_v2';
+  const SEVENTY_TWO_HOURS = 72 * 60 * 60 * 1000;
   let expiry = parseInt(localStorage.getItem(expiryKey), 10);
   const now = Date.now();
 
   if (!expiry || isNaN(expiry) || expiry <= now) {
-    expiry = now + TWELVE_HOURS;
+    expiry = now + SEVENTY_TWO_HOURS;
     localStorage.setItem(expiryKey, expiry);
   }
 
@@ -1338,7 +1338,7 @@ function updateBonusCountdown() {
   if (elS) elS.textContent = sStr;
   if (elMini) elMini.textContent = `${hStr}h ${mStr}m ${sStr}s left`;
   if (elBar) {
-    const pct = Math.min(100, Math.max(2, (diff / TWELVE_HOURS) * 100));
+    const pct = Math.min(100, Math.max(2, (diff / SEVENTY_TWO_HOURS) * 100));
     elBar.style.width = pct + '%';
   }
 }
